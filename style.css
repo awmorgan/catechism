@@ -457,7 +457,13 @@ main {
 }
 
 /* Anchors and Highlights */
-[id] {
+:target,
+[tabindex="-1"],
+.chapter,
+[data-subheading],
+p[id^="p-"],
+.footnotes p[id],
+a.note-ref[id] {
   scroll-margin-top: calc(var(--bar-height, 100px) + 20px);
 }
 

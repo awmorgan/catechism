@@ -18,7 +18,7 @@
   });
   const text = plain.map(t => t.toLowerCase());
 
-  // Chapter metadata cache
+  // Chapter metadata cache with pre-queried subheadings & paragraphs
   const chapterInfo = new Map(chapters.map(c => {
     const link = document.querySelector('.toc a[href="#' + c.id + '"]') ||
                  document.querySelector('.toc a[data-aliases~="' + c.id + '"]');
@@ -27,7 +27,9 @@
       title: c.querySelector('h2').textContent,
       group,
       part: group?.querySelector('summary [data-toc-title]')?.textContent || 'Catechism',
-      link
+      link,
+      subheadings: [...c.querySelectorAll('[data-subheading]')],
+      paragraphs: [...c.querySelectorAll('p[id^="p-"]')]
     }];
   }));
 
@@ -143,8 +145,11 @@
     $('result-title').textContent = 'Find: ' + $('query').value.trim();
     $('result-count').textContent = matches.length + ' matching paragraphs';
 
+    const maxVisibleResults = 150;
+    const cappedMatches = matches.length > maxVisibleResults ? matches.slice(0, maxVisibleResults) : matches;
+
     const groups = new Map();
-    matches.forEach((item, matchIdx) => {
+    cappedMatches.forEach((item, matchIdx) => {
       const info = chapterInfo.get(item.el.closest('.chapter'));
       if (!groups.has(info.part)) groups.set(info.part, []);
       groups.get(info.part).push({ el: item.el, matchIdx, pIndex: item.pIndex, info });
@@ -186,6 +191,15 @@
         section.append(button);
       }
       root.append(section);
+    }
+
+    if (matches.length > maxVisibleResults) {
+      const moreNotice = document.createElement('p');
+      moreNotice.style.fontStyle = 'italic';
+      moreNotice.style.color = '#526677';
+      moreNotice.style.padding = '.8rem 1rem';
+      moreNotice.textContent = `Showing first ${maxVisibleResults} of ${matches.length} matching paragraphs. Type more words or use Previous / Next buttons to cycle through all matches.`;
+      root.append(moreNotice);
     }
 
     if (!matches.length) {
@@ -346,10 +360,22 @@
     });
   }));
 
-  // Dynamic bar height tracking
-  new ResizeObserver(() => document.documentElement.style.setProperty('--bar-height', bar.offsetHeight + 'px')).observe(bar);
+  // Dynamic bar height tracking with hysteresis threshold and animation-frame batching
+  let lastBarHeight = 0;
+  let barHeightRaf = 0;
+  new ResizeObserver(entries => {
+    const entry = entries[0];
+    const h = Math.round(entry?.borderBoxSize?.[0]?.blockSize || bar.offsetHeight);
+    if (Math.abs(h - lastBarHeight) >= 3) {
+      cancelAnimationFrame(barHeightRaf);
+      barHeightRaf = requestAnimationFrame(() => {
+        lastBarHeight = h;
+        document.documentElement.style.setProperty('--bar-height', h + 'px');
+      });
+    }
+  }).observe(bar);
 
-  // High-performance location tracker using binary search across chapters
+  // High-performance location tracker using binary search across chapters & paragraphs
   let scheduled = false;
   function locate() {
     scheduled = false;
@@ -373,22 +399,38 @@
 
     const info = chapterInfo.get(current);
     let activeHeading = null;
-    for (const h of current.querySelectorAll('[data-subheading]')) {
-      if (h.getBoundingClientRect().top > y + 10) break;
-      activeHeading = h;
+    const subs = info.subheadings;
+    for (let i = 0; i < subs.length; i++) {
+      if (subs[i].getBoundingClientRect().top > y + 10) break;
+      activeHeading = subs[i];
     }
 
     let para = '';
-    for (const p of current.querySelectorAll('p[id^="p-"]')) {
-      if (p.getBoundingClientRect().top > y + 80) break;
-      para = p.id.slice(2);
+    const paras = info.paragraphs;
+    if (paras.length) {
+      let pLow = 0;
+      let pHigh = paras.length - 1;
+      let bestP = null;
+      while (pLow <= pHigh) {
+        const pMid = (pLow + pHigh) >> 1;
+        if (paras[pMid].getBoundingClientRect().top <= y + 80) {
+          bestP = paras[pMid];
+          pLow = pMid + 1;
+        } else {
+          pHigh = pMid - 1;
+        }
+      }
+      if (bestP) para = bestP.id.slice(2);
     }
 
     currentHeading = activeHeading;
     currentPara = para;
     const trail = [info.part, activeHeading ? activeHeading.textContent : info.title, para ? '¶ ' + para : ''].filter(Boolean).join(' › ');
-    $('location-link').textContent = trail;
-    $('location-link').title = trail + ' — open contents';
+    const locLink = $('location-link');
+    if (locLink.textContent !== trail) {
+      locLink.textContent = trail;
+      locLink.title = trail + ' — open contents';
+    }
   }
 
   window.addEventListener('scroll', () => {
@@ -511,13 +553,25 @@
     }
   });
 
+  // Precompile definition matchers once at startup
+  const definitionEntries = Object.entries(data.definitions).map(([key, value]) => {
+    const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return {
+      key,
+      value,
+      regex: new RegExp('(?<![\\p{L}\\p{N}])' + escaped + '(?![\\p{L}\\p{N}])', 'u')
+    };
+  });
+
   // Helper to explain terms in footnote text
   function explainTerms(text) {
-    return Object.entries(data.definitions)
-      .filter(([key]) => {
-        const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        return new RegExp('(?<![\\p{L}\\p{N}])' + escaped + '(?![\\p{L}\\p{N}])', 'u').test(text);
-      })
+    const matched = [];
+    for (let i = 0; i < definitionEntries.length; i++) {
+      if (definitionEntries[i].regex.test(text)) {
+        matched.push([definitionEntries[i].key, definitionEntries[i].value]);
+      }
+    }
+    return matched
       .sort(([a], [b]) => b.length - a.length)
       .filter(([key], i, all) => !all.slice(0, i).some(([long]) => long.includes(key)));
   }
@@ -604,7 +658,23 @@
 
   document.querySelectorAll('details.footnotes').forEach(d => {
     d.addEventListener('toggle', () => {
-      if (d.open) initFootnotesSection(d);
+      if (d.open) {
+        initFootnotesSection(d);
+      } else {
+        // Blur any focused element inside the collapsed section to prevent browser scroll lock
+        if (document.activeElement && d.contains(document.activeElement)) {
+          document.activeElement.blur();
+        }
+        // Clear active target if location hash points to an element inside this collapsed details
+        if (location.hash) {
+          try {
+            const target = document.getElementById(decodeURIComponent(location.hash.slice(1)));
+            if (target && d.contains(target)) {
+              history.replaceState(null, '', location.pathname + location.search);
+            }
+          } catch {}
+        }
+      }
     });
     if (d.open) initFootnotesSection(d);
   });
