@@ -355,7 +355,7 @@ main {
 /* Chapters & Typography */
 .chapter {
   margin: 3rem 0;
-  content-visibility: visible;
+  contain: layout style;
 }
 
 .chapter h2 {
@@ -397,6 +397,8 @@ main {
 
 /* Footnotes */
 .footnotes {
+  contain: layout;
+  overflow-anchor: none;
   font: 1.1rem/1.6 Arial, sans-serif;
   border-block: 1px solid #ccd5dc;
   padding: 1rem 0;
@@ -415,55 +417,13 @@ main {
   margin-right: .35em;
 }
 
-.explain-note {
-  border: 0;
-  background: none;
-  color: #174f7c;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  font: inherit;
-  font-size: .85em;
-  min-height: 32px;
-  padding: .15rem .4rem;
-  margin-left: .5rem;
-}
-
-.note-explanation {
-  border-left: 3px solid #7e9ab2;
-  background: #f2f6f9;
-  padding: .8rem 1rem;
-  margin: -.3rem 0 1.2rem;
-  font: 1rem/1.55 Arial, sans-serif;
-}
-
-.note-explanation[hidden] {
-  display: none;
-}
-
-.note-explanation p {
-  margin: .5rem 0;
-}
-
-.note-explanation .explained-source {
-  display: block;
-  margin: .4rem 0;
-}
-
-.browse-references {
-  font-size: .9rem;
-  min-height: 32px;
-  margin-top: .65rem;
-  padding: .3rem .5rem;
-}
+/* Footnote explanations inlined statically */
 
 /* Anchors and Highlights */
 :target,
 [tabindex="-1"],
 .chapter,
-[data-subheading],
-p[id^="p-"],
-.footnotes p[id],
-a.note-ref[id] {
+[data-subheading] {
   scroll-margin-top: calc(var(--bar-height, 100px) + 20px);
 }
 

@@ -553,114 +553,9 @@
     }
   });
 
-  // Precompile definition matchers once at startup
-  const definitionEntries = Object.entries(data.definitions).map(([key, value]) => {
-    const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    return {
-      key,
-      value,
-      regex: new RegExp('(?<![\\p{L}\\p{N}])' + escaped + '(?![\\p{L}\\p{N}])', 'u')
-    };
-  });
-
-  // Helper to explain terms in footnote text
-  function explainTerms(text) {
-    const matched = [];
-    for (let i = 0; i < definitionEntries.length; i++) {
-      if (definitionEntries[i].regex.test(text)) {
-        matched.push([definitionEntries[i].key, definitionEntries[i].value]);
-      }
-    }
-    return matched
-      .sort(([a], [b]) => b.length - a.length)
-      .filter(([key], i, all) => !all.slice(0, i).some(([long]) => long.includes(key)));
-  }
-
-  // Lazy Footnote Explanations: initialize per section when details opens
-  const notesById = new Map(data.notes.map(n => [n.id, n]));
-
-  function initFootnotesSection(section) {
-    if (section.dataset.initialized) return;
-    section.dataset.initialized = 'true';
-
-    for (const p of section.querySelectorAll('p[id]')) {
-      const note = notesById.get(p.id);
-      if (!note) continue;
-
-      const button = document.createElement('button');
-      button.className = 'explain-note';
-      button.textContent = 'Explain';
-      button.setAttribute('aria-expanded', 'false');
-      button.setAttribute('aria-controls', note.id + '-explanation');
-      p.append(button);
-
-      let panel;
-      button.onclick = () => {
-        if (!panel) {
-          panel = document.createElement('div');
-          panel.id = note.id + '-explanation';
-          panel.className = 'note-explanation';
-          panel.setAttribute('role', 'region');
-          panel.setAttribute('aria-label', 'Explanation of footnote ' + note.text.split('.')[0]);
-
-          const heading = document.createElement('strong');
-          heading.textContent = 'About this reference';
-          panel.append(heading);
-
-          const terms = explainTerms(note.text);
-          for (const [key, value] of terms) {
-            const row = document.createElement('p');
-            const label = document.createElement('b');
-            label.textContent = key + ': ';
-            row.append(label, document.createTextNode(value));
-            panel.append(row);
-          }
-
-          if (!terms.length) {
-            const message = document.createElement('p');
-            message.textContent = 'No verified expansion is available for this reference yet. The citation above is preserved as printed.';
-            panel.append(message);
-          }
-
-          const sources = [...p.querySelectorAll('a[href^="https:"]')];
-          if (sources.length) {
-            const label = document.createElement('p');
-            label.textContent = 'Read the source (opens in a new tab):';
-            panel.append(label);
-            for (const source of sources) {
-              const copy = source.cloneNode(true);
-              copy.className = 'explained-source';
-              panel.append(copy);
-            }
-          }
-
-          const browse = document.createElement('button');
-          browse.className = 'browse-references';
-          browse.textContent = 'Browse all abbreviations';
-          browse.onclick = () => {
-            query.value = '';
-            render();
-            dialog.showModal();
-            query.focus();
-          };
-          panel.append(browse);
-          p.after(panel);
-        } else {
-          panel.hidden = !panel.hidden;
-        }
-
-        const open = !panel.hidden;
-        button.setAttribute('aria-expanded', String(open));
-        button.textContent = open ? 'Hide explanation' : 'Explain';
-      };
-    }
-  }
-
   document.querySelectorAll('details.footnotes').forEach(d => {
     d.addEventListener('toggle', () => {
-      if (d.open) {
-        initFootnotesSection(d);
-      } else {
+      if (!d.open) {
         // Blur any focused element inside the collapsed section to prevent browser scroll lock
         if (document.activeElement && d.contains(document.activeElement)) {
           document.activeElement.blur();
@@ -676,7 +571,6 @@
         }
       }
     });
-    if (d.open) initFootnotesSection(d);
   });
 })();
 
