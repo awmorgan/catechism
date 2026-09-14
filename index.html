@@ -408,6 +408,108 @@ main {
   flex-shrink: 0;
 }
 
+/* Chapters & Typography */
+.chapter {
+  margin: 3rem 0;
+  contain: layout style;
+}
+
+.chapter h2 {
+  font: normal 1.8rem/1.4 Georgia, serif;
+  border-top: 2px solid #174f7c;
+  padding-top: 1.4rem;
+}
+
+.text {
+  font: var(--reading-size)/1.7 Georgia, serif;
+  overflow-wrap: anywhere;
+}
+
+.text p {
+  margin: 0 0 1.4em;
+}
+
+.text h1, .text h2, .text h3 {
+  font-size: 1.1em;
+  line-height: 1.5;
+}
+
+.text h3[data-subheading] {
+  font-size: 1.12em;
+  margin: 2em 0 1em;
+  font-weight: bold;
+}
+
+.paragraph-number {
+  font: bold .72em Arial, sans-serif;
+  display: inline-block;
+  min-width: 2ch;
+}
+
+.note-ref {
+  font-family: Arial, sans-serif;
+  padding: 0 .15em;
+}
+
+/* Footnotes */
+.footnotes {
+  contain: layout;
+  overflow-anchor: none;
+  font: 1.1rem/1.6 Arial, sans-serif;
+  border-block: 1px solid #ccd5dc;
+  padding: 1rem 0;
+  margin: 2rem 0;
+}
+
+.footnotes p {
+  margin: 1rem 0;
+}
+
+.footnotes summary {
+  font-weight: bold;
+}
+
+.footnotes a {
+  margin-right: .35em;
+}
+
+/* Anchors and Highlights */
+:target,
+[tabindex="-1"],
+.chapter,
+[data-subheading] {
+  scroll-margin-top: calc(var(--bar-height, 100px) + 20px);
+}
+
+:target {
+  outline: 2px solid #b47e25;
+  outline-offset: 6px;
+}
+
+.hit {
+  background: #fff0b9;
+}
+
+.chapter.hit {
+  background: transparent;
+}
+
+/* Dialogs */
+dialog {
+  padding: 0;
+  border: 1px solid #aab7c1;
+  border-radius: 8px;
+  width: min(850px, calc(100vw - 2rem));
+  max-height: 85vh;
+  color: #182532;
+  background: #fff;
+  box-shadow: 0 15px 60px #0003;
+}
+
+dialog::backdrop {
+  background: #15253266;
+}
+
 /* Find Results Modal */
 dialog#results[open] {
   display: grid;
@@ -702,7 +804,7 @@ footer {
 }
 
 
-</style></head><body id="top"><header><h1>Catechism of the Catholic Church</h1><p>The full text, on one page.</p></header><div class="tools"><div class="search-control"><form id="find" role="search"><label class="sr-only" for="query">Find words</label><input id="query" type="search" placeholder="Find words"><button>Find</button><button type="button" id="show-results" disabled>Results</button><button type="button" id="previous" disabled aria-label="Previous match">←</button><button type="button" id="next" disabled aria-label="Next match">→</button></form><div class="search-feedback"><label class="word-option"><input id="whole-words" type="checkbox" checked> Whole words</label><output id="status" aria-live="polite"></output></div></div><div class="jump-control"><form id="jump"><label class="sr-only" for="paragraph">Go to paragraph</label><input id="paragraph" type="number" min="1" max="2865" step="1" required placeholder="¶ number"><button>Go</button></form><output id="jump-status" aria-live="polite"></output></div><div class="size"><button id="smaller" aria-label="Smaller text">A−</button><button id="larger" aria-label="Larger text">A+</button></div><nav id="location" class="location" aria-label="Current location"><button id="location-link" aria-controls="contents" aria-expanded="false" title="Open contents at your current location">Prologue</button></nav></div><main><details class="toc" id="contents"><summary>Contents</summary><nav aria-label="Table of contents">
+</style></head><body id="top"><header><h1>Catechism of the Catholic Church</h1><p>The full text, on one page.</p></header><div class="tools"><div class="search-control"><form id="find" role="search"><label class="sr-only" for="query">Find words</label><input id="query" type="search" placeholder="Find words"><button>Find</button><button type="button" id="show-results" disabled>Results</button><button type="button" id="previous" disabled aria-label="Previous match">←</button><button type="button" id="next" disabled aria-label="Next match">→</button></form><div class="search-feedback"><label class="word-option"><input id="whole-words" type="checkbox" checked> Whole words</label><output id="status" aria-live="polite"></output></div></div><div class="jump-control"><form id="jump"><label class="sr-only" for="paragraph">Go to paragraph</label><input id="paragraph" type="number" min="1" max="2865" step="1" required placeholder="¶ number"><button>Go</button></form><output id="jump-status" aria-live="polite"></output></div><div class="size"><button type="button" id="smaller" aria-label="Smaller text">A−</button><button type="button" id="larger" aria-label="Larger text">A+</button></div><nav id="location" class="location" aria-label="Current location"><button id="location-link" aria-controls="contents" aria-expanded="false" title="Open contents at your current location">Prologue</button></nav></div><main><details class="toc" id="contents"><summary>Contents</summary><nav aria-label="Table of contents">
 <div class="toc-toolbar">
   <button type="button" id="toc-collapse-all" class="toc-action-btn">Collapse all</button>
   <button type="button" id="toc-expand-all" class="toc-action-btn">Expand all</button>
@@ -12874,6 +12976,8 @@ seven petitions: &quot;So be it&quot;.</i><br>
   function setSize(n) {
     size = Math.round(Math.max(1.2, Math.min(3.5, n)) * 100) / 100;
     document.documentElement.style.setProperty('--reading-size', size + 'rem');
+    $('smaller').disabled = size <= 1.2;
+    $('larger').disabled = size >= 3.5;
     try {
       localStorage.setItem('simple-catechism-size', String(size));
     } catch {}
