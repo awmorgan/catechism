@@ -26,6 +26,7 @@ type Section struct {
 
 type TOCNode struct {
 	ID       string     `json:"id"`
+	SecNum   int        `json:"secNum"`
 	Title    string     `json:"title"`
 	Range    string     `json:"range"`
 	IsPart   bool       `json:"isPart"`
@@ -151,15 +152,28 @@ func main() {
 	}
 	tocRoots := parseTOC(doc)
 
-	// Collect leaf branches
-	var leafBranches []*TOCNode
-	var trailMap = make(map[*TOCNode][]string)
+	// Collect page definitions using inherited ancestor start sections for logical page boundaries
+	type RawPage struct {
+		Title       string
+		Range       string
+		StartID     string
+		StartSecNum int
+		Breadcrumbs []string
+	}
 
-	var collectLeafBranches func(n *TOCNode, trail []string)
-	collectLeafBranches = func(n *TOCNode, trail []string) {
+	var rawPages []*RawPage
+	lastAssignedSec := -1
+
+	var walkTOC func(n *TOCNode, trail []string, inheritedStartSec int)
+	walkTOC = func(n *TOCNode, trail []string, inheritedStartSec int) {
 		currentTrail := trail
 		if n.Title != "" {
 			currentTrail = append(currentTrail, n.Title)
+		}
+
+		startSec := inheritedStartSec
+		if n.SecNum != -1 && (startSec == -1 || n.SecNum < startSec) && n.SecNum > lastAssignedSec {
+			startSec = n.SecNum
 		}
 
 		hasChildBranch := false
@@ -171,39 +185,39 @@ func main() {
 		}
 
 		if n.IsBranch && !hasChildBranch {
-			leafBranches = append(leafBranches, n)
-			trailMap[n] = trail
+			actualStart := startSec
+			if actualStart == -1 || actualStart <= lastAssignedSec {
+				actualStart = n.SecNum
+			}
+			if actualStart > lastAssignedSec {
+				lastAssignedSec = actualStart
+			}
+
+			rawPages = append(rawPages, &RawPage{
+				Title:       n.Title,
+				Range:       n.Range,
+				StartID:     n.ID,
+				StartSecNum: actualStart,
+				Breadcrumbs: currentTrail,
+			})
 			return
 		}
 
+		first := true
 		for _, ch := range n.Children {
 			if ch.IsBranch {
-				collectLeafBranches(ch, currentTrail)
+				if first {
+					walkTOC(ch, currentTrail, startSec)
+					first = false
+				} else {
+					walkTOC(ch, currentTrail, -1)
+				}
 			}
 		}
 	}
 
 	for _, root := range tocRoots {
-		collectLeafBranches(root, nil)
-	}
-
-	var rawPages []*PageDef
-	for _, b := range leafBranches {
-		baseID := b.ID
-		if idx := strings.Index(baseID, "-heading-"); idx != -1 {
-			baseID = baseID[:idx]
-		}
-		secNum := -1
-		if strings.HasPrefix(baseID, "s-") {
-			secNum, _ = strconv.Atoi(strings.TrimPrefix(baseID, "s-"))
-		}
-
-		rawPages = append(rawPages, &PageDef{
-			Title:       b.Title,
-			StartID:     baseID,
-			StartSecNum: secNum,
-			Breadcrumbs: trailMap[b],
-		})
+		walkTOC(root, nil, -1)
 	}
 
 	if len(rawPages) > 0 {
@@ -448,7 +462,7 @@ func renderPageHTML(page *PageDef, drawerHTML string) string {
           🔍
         </button>
         <form id="jump-form" class="jump-form">
-          <input type="number" id="jump-input" class="jump-input" min="1" max="2865" placeholder="¶ 1–2865" aria-label="Jump to paragraph number">
+          <input type="text" inputmode="numeric" pattern="[0-9]*" id="jump-input" class="jump-input" placeholder="¶ 1–2865" aria-label="Jump to paragraph number">
           <button type="submit" class="jump-btn">Go</button>
         </form>
         <button type="button" id="btn-font-smaller" class="btn-icon" aria-label="Smaller text" title="Smaller font">A−</button>
@@ -490,8 +504,15 @@ func renderPageHTML(page *PageDef, drawerHTML string) string {
   <dialog id="search-modal" class="modal-dialog">
     <div class="search-header">
       <span style="font-size:1.2rem">🔍</span>
-      <input type="search" id="search-query" placeholder="Search paragraphs..." autocomplete="off">
+      <input type="search" id="search-query" placeholder="Search the Catechism..." autocomplete="off">
       <button type="button" id="btn-close-search" class="btn-icon">✕</button>
+    </div>
+    <div class="search-controls-bar">
+      <label class="search-option-label">
+        <input type="checkbox" id="search-whole-words" checked>
+        <span>Whole words</span>
+      </label>
+      <span id="search-count" class="search-count"></span>
     </div>
     <div id="search-results" class="search-results"></div>
   </dialog>
@@ -571,17 +592,14 @@ func renderLandingPage(pages []*PageDef) string {
 
   <main class="reader-main" style="max-width: 820px;">
     <div style="text-align: center; margin: 2rem 0 3rem; padding-bottom: 2rem; border-bottom: 1px solid var(--border);">
-      <h1 style="font-size: 2.6rem; font-weight: 700; line-height: 1.2; margin-bottom: 0.8rem;">Catechism of the Catholic Church</h1>
-      <p style="font-family: var(--font-sans); color: var(--text-muted); font-size: 1.1rem; max-width: 600px; margin: auto;">
-        A high-performance, mobile-first edition designed for comfortable reading on phones, tablets, and computers.
-      </p>
+      <h1 style="font-size: 2.6rem; font-weight: 700; line-height: 1.2; margin-bottom: 1.5rem;">Catechism of the Catholic Church</h1>
       
-      <div style="margin-top: 1.8rem; display: flex; justify-content: center; gap: 0.8rem; flex-wrap: wrap;">
+      <div style="margin-top: 1rem; display: flex; justify-content: center; gap: 0.8rem; flex-wrap: wrap;">
         <a href="pages/001.html" class="btn-icon" style="height: 48px; padding: 0 1.5rem; background: var(--accent); color: #fff; text-decoration: none; font-size: 1.05rem; font-weight: 600; border: none;">
           📖 Begin Reading (Prologue)
         </a>
         <form id="jump-form" class="jump-form">
-          <input type="number" id="jump-input" class="jump-input" min="1" max="2865" placeholder="Go to ¶ (1–2865)" style="height: 48px; width: 8.5rem; font-size: 1rem;">
+          <input type="text" inputmode="numeric" pattern="[0-9]*" id="jump-input" class="jump-input" placeholder="Go to ¶ (1–2865)" style="height: 48px; width: 8.5rem; font-size: 1rem;">
           <button type="submit" class="jump-btn" style="height: 48px; padding: 0 1rem; font-size: 1rem; font-weight: 600;">Go</button>
         </form>
       </div>
@@ -598,8 +616,15 @@ func renderLandingPage(pages []*PageDef) string {
   <dialog id="search-modal" class="modal-dialog">
     <div class="search-header">
       <span style="font-size:1.2rem">🔍</span>
-      <input type="search" id="search-query" placeholder="Search paragraphs..." autocomplete="off">
+      <input type="search" id="search-query" placeholder="Search the Catechism..." autocomplete="off">
       <button type="button" id="btn-close-search" class="btn-icon">✕</button>
+    </div>
+    <div class="search-controls-bar">
+      <label class="search-option-label">
+        <input type="checkbox" id="search-whole-words" checked>
+        <span>Whole words</span>
+      </label>
+      <span id="search-count" class="search-count"></span>
     </div>
     <div id="search-results" class="search-results"></div>
   </dialog>
@@ -639,7 +664,7 @@ func parseTOC(doc *nethtml.Node) []*TOCNode {
 }
 
 func parseBranchNode(n *nethtml.Node) *TOCNode {
-	node := &TOCNode{IsBranch: true}
+	node := &TOCNode{IsBranch: true, SecNum: -1}
 	for _, a := range n.Attr {
 		if a.Key == "data-part" {
 			node.IsPart = true
@@ -666,7 +691,7 @@ func parseBranchNode(n *nethtml.Node) *TOCNode {
 }
 
 func parseItemNode(n *nethtml.Node) *TOCNode {
-	node := &TOCNode{IsBranch: false}
+	node := &TOCNode{IsBranch: false, SecNum: -1}
 	for c := n.FirstChild; c != nil; c = c.NextSibling {
 		if c.Type == nethtml.ElementNode && c.Data == "div" && hasClass(c, "toc-row") {
 			extractRowData(c, node)
@@ -682,6 +707,13 @@ func extractRowData(row *nethtml.Node, node *TOCNode) {
 			for _, a := range n.Attr {
 				if a.Key == "href" {
 					node.ID = strings.TrimPrefix(a.Val, "#")
+					base := node.ID
+					if idx := strings.Index(base, "-heading-"); idx != -1 {
+						base = base[:idx]
+					}
+					if strings.HasPrefix(base, "s-") {
+						node.SecNum, _ = strconv.Atoi(strings.TrimPrefix(base, "s-"))
+					}
 				}
 			}
 			for sub := n.FirstChild; sub != nil; sub = sub.NextSibling {

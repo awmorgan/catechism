@@ -6,6 +6,7 @@
 
     let searchIndex = null;
     let isFetching = false;
+    const WHOLE_WORDS_KEY = 'ccc-search-whole-words';
 
     document.addEventListener('DOMContentLoaded', () => {
         const modal = document.getElementById('search-modal');
@@ -13,8 +14,20 @@
         const resultsContainer = document.getElementById('search-results');
         const openBtn = document.getElementById('btn-open-search');
         const closeBtn = document.getElementById('btn-close-search');
+        const wholeWordsCheckbox = document.getElementById('search-whole-words');
+        const searchCountEl = document.getElementById('search-count');
 
         if (!modal || !input || !resultsContainer) return;
+
+        let wholeWords = localStorage.getItem(WHOLE_WORDS_KEY) !== 'false';
+        if (wholeWordsCheckbox) {
+            wholeWordsCheckbox.checked = wholeWords;
+            wholeWordsCheckbox.onchange = () => {
+                wholeWords = wholeWordsCheckbox.checked;
+                localStorage.setItem(WHOLE_WORDS_KEY, String(wholeWords));
+                triggerSearch();
+            };
+        }
 
         function ensureIndex(callback) {
             if (searchIndex) {
@@ -31,7 +44,7 @@
                     isFetching = false;
                     callback(searchIndex);
                 })
-                .catch(err => {
+                .catch(() => {
                     isFetching = false;
                     resultsContainer.innerHTML = '<p style="padding:1rem;color:red;">Error loading search index.</p>';
                 });
@@ -40,6 +53,7 @@
         function openSearch() {
             modal.showModal();
             input.value = '';
+            if (searchCountEl) searchCountEl.textContent = '';
             resultsContainer.innerHTML = '<p style="padding:1rem;color:var(--text-muted);">Type words to search paragraphs across the Catechism...</p>';
             input.focus();
             ensureIndex(() => { });
@@ -63,10 +77,11 @@
 
         // Debounced search
         let debounceTimer;
-        input.addEventListener('input', () => {
+        function triggerSearch() {
             clearTimeout(debounceTimer);
-            const query = input.value.trim().toLowerCase();
+            const query = input.value.trim();
             if (!query || query.length < 2) {
+                if (searchCountEl) searchCountEl.textContent = '';
                 resultsContainer.innerHTML = '<p style="padding:1rem;color:var(--text-muted);">Type at least 2 characters to search...</p>';
                 return;
             }
@@ -75,40 +90,62 @@
                     performSearch(query, index);
                 });
             }, 150);
-        });
+        }
+
+        input.addEventListener('input', triggerSearch);
+
+        function escapeRegex(str) {
+            return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+
+        function buildTermRegex(term, isWholeWord) {
+            const escaped = escapeRegex(term);
+            if (!isWholeWord) {
+                return new RegExp(escaped, 'iu');
+            }
+            return new RegExp('(?<![\\p{L}\\p{N}_])' + escaped + '(?![\\p{L}\\p{N}_])', 'iu');
+        }
 
         function performSearch(query, index) {
             const terms = query.split(/\s+/).filter(Boolean);
-            const matches = [];
+            const isWhole = wholeWordsCheckbox ? wholeWordsCheckbox.checked : false;
+            const matchRegexes = terms.map(t => buildTermRegex(t, isWhole));
 
+            const matches = [];
             for (let i = 0; i < index.length; i++) {
                 const item = index[i];
-                const text = item.text.toLowerCase();
                 let allMatch = true;
-                for (const t of terms) {
-                    if (!text.includes(t)) {
+                for (const rx of matchRegexes) {
+                    if (!rx.test(item.text)) {
                         allMatch = false;
                         break;
                     }
                 }
                 if (allMatch) {
                     matches.push(item);
-                    if (matches.length >= 80) break; // Limit to 80 matches for performance
+                    if (matches.length >= 80) break; // Limit to 80 matches for responsiveness
                 }
             }
 
-            renderResults(matches, terms);
+            renderResults(matches, terms, isWhole);
         }
 
-        function renderResults(matches, terms) {
+        function renderResults(matches, terms, isWhole) {
             resultsContainer.innerHTML = '';
+            if (searchCountEl) {
+                searchCountEl.textContent = matches.length > 0 ? `${matches.length}${matches.length >= 80 ? '+' : ''} matches` : '';
+            }
             if (!matches.length) {
-                resultsContainer.innerHTML = '<p style="padding:1rem;color:var(--text-muted);">No matching paragraphs found. Try other keywords.</p>';
+                resultsContainer.innerHTML = '<p style="padding:1rem;color:var(--text-muted);">No matching paragraphs found. Try other keywords or toggle "Whole words".</p>';
                 return;
             }
 
             const rootPrefix = document.body.dataset.root || '';
-            const regex = new RegExp('(' + terms.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')', 'gi');
+            const highlightPattern = terms.map(t => {
+                const esc = escapeRegex(t);
+                return isWhole ? '(?<![\\p{L}\\p{N}_])' + esc + '(?![\\p{L}\\p{N}_])' : esc;
+            }).join('|');
+            const highlightRegex = new RegExp('(' + highlightPattern + ')', 'giu');
 
             const frag = document.createDocumentFragment();
             for (const m of matches) {
@@ -124,21 +161,15 @@
                 // Highlight snippet
                 const snippet = document.createElement('div');
                 snippet.className = 'search-item-snippet';
-                let highlighted = m.text.slice(0, 220);
-                if (m.text.length > 220) highlighted += '…';
-                snippet.innerHTML = highlighted.replace(regex, '<mark>$1</mark>');
+                let highlighted = m.text.slice(0, 240);
+                if (m.text.length > 240) highlighted += '…';
+                snippet.innerHTML = highlighted.replace(highlightRegex, '<mark>$1</mark>');
 
                 a.append(header, snippet);
                 frag.append(a);
             }
 
-            const countP = document.createElement('p');
-            countP.style.padding = '0.5rem 0.8rem';
-            countP.style.fontSize = '0.85rem';
-            countP.style.color = 'var(--text-muted)';
-            countP.textContent = `${matches.length} matches found`;
-            resultsContainer.append(countP, frag);
+            resultsContainer.append(frag);
         }
     });
 })();
-

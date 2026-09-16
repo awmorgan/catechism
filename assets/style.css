@@ -158,6 +158,16 @@ summary:focus-visible {
     gap: 0.25rem;
 }
 
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+input[type="number"] {
+    -moz-appearance: textfield;
+}
+
 .jump-input {
     width: 5.5rem;
     height: 40px;
@@ -168,6 +178,9 @@ summary:focus-visible {
     font-size: 0.85rem;
     background: var(--bg-card);
     color: var(--text);
+    -webkit-appearance: none;
+    -moz-appearance: textfield;
+    appearance: none;
 }
 
 .jump-btn {
@@ -279,9 +292,7 @@ summary:focus-visible {
 /* Paragraphs & Badges */
 .reader-main p {
     margin: 1.15rem 0;
-    text-align: justify;
-    text-justify: inter-word;
-    hyphens: auto;
+    text-align: left;
 }
 
 p[id^="p-"] {
@@ -574,6 +585,38 @@ details.footnotes p {
     font-family: var(--font-sans);
     font-size: 1.05rem;
     outline: none;
+}
+
+.search-controls-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 1rem;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    font-family: var(--font-sans);
+    font-size: 0.85rem;
+}
+
+.search-option-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--text);
+    cursor: pointer;
+    user-select: none;
+    font-weight: 500;
+}
+
+.search-option-label input[type="checkbox"] {
+    accent-color: var(--accent);
+    width: 16px;
+    height: 16px;
+}
+
+.search-count {
+    font-size: 0.8rem;
+    color: var(--text-muted);
 }
 
 .search-results {
