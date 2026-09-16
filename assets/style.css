@@ -626,7 +626,8 @@ details.footnotes,
     left: 50%;
     transform: translateX(-50%);
     width: min(650px, 94vw);
-    max-height: 80vh;
+    height: 75vh;
+    max-height: 700px;
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: 12px;
@@ -700,10 +701,11 @@ details.footnotes,
 }
 
 .search-results {
-    flex: 1;
+    flex: 1 1 0%;
+    min-height: 0;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
     padding: 0.8rem;
-    max-height: 60vh;
     font-family: var(--font-sans);
 }
 
@@ -806,9 +808,37 @@ details.footnotes,
     }
 
     .modal-dialog {
-        top: 5%;
-        width: 95vw;
-        max-height: 88vh;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        width: 100vw;
+        height: 100%;
+        height: 100dvh;
+        max-height: 100dvh;
+        transform: none;
+        border: none;
+        border-radius: 0;
+        margin: 0;
+        z-index: 130;
+    }
+
+    .search-header {
+        padding: 0.75rem 0.85rem;
+        padding-top: max(0.75rem, env(safe-area-inset-top));
+    }
+
+    .search-header input {
+        font-size: 1.1rem;
+    }
+
+    .search-controls-bar {
+        padding: 0.5rem 0.85rem;
+    }
+
+    .search-results {
+        padding: 0.75rem 0.85rem 3.5rem;
     }
 
     .reader-main {

@@ -359,6 +359,13 @@
 
         input.addEventListener('input', triggerSearch);
 
+        // Dismiss mobile keyboard when user scrolls through search results
+        resultsContainer.addEventListener('scroll', () => {
+            if (document.activeElement === input) {
+                input.blur();
+            }
+        }, { passive: true });
+
         function escapeRegex(str) {
             return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         }
