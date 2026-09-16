@@ -592,6 +592,8 @@ func renderPageHTML(page *PageDef, drawerHTML string) string {
 
 	var bodyContent strings.Builder
 	leadingH2Regex := regexp.MustCompile(`(?s)^\s*<h2[^>]*>.*?</h2>\s*`)
+	preamblePRegex := regexp.MustCompile(`(?s)<p[^>]*>(.*?)</p>`)
+
 	for secIdx, s := range page.Sections {
 		bodyContent.WriteString(fmt.Sprintf(`<section class="chapter" id="%s">`, s.ID))
 		secHTML := s.HTML
@@ -599,6 +601,56 @@ func renderPageHTML(page *PageDef, drawerHTML string) string {
 			// Strip leading redundant <h2> that repeats the page <h1> title
 			secHTML = leadingH2Regex.ReplaceAllString(secHTML, "")
 		}
+
+		// Deduplicate redundant preamble paragraphs before the first numbered paragraph
+		divIdx := strings.Index(secHTML, `<div class="text">`)
+		if divIdx != -1 {
+			prefix := secHTML[:divIdx+len(`<div class="text">`)]
+			remainder := secHTML[divIdx+len(`<div class="text">`):]
+
+			firstP := strings.Index(remainder, `<p id="p-`)
+			if firstP == -1 {
+				firstP = strings.Index(remainder, `<details`)
+			}
+			if firstP == -1 {
+				firstP = len(remainder)
+			}
+
+			preamble := remainder[:firstP]
+			postPreamble := remainder[firstP:]
+
+			normH2 := normText(s.Heading)
+			normPage := normText(page.Title)
+
+			cleanedPreamble := preamblePRegex.ReplaceAllStringFunc(preamble, func(pTag string) string {
+				m := preamblePRegex.FindStringSubmatch(pTag)
+				if len(m) < 2 {
+					return pTag
+				}
+				inner := m[1]
+				normP := normText(inner)
+
+				// Strip empty or stray punctuation
+				if normP == "" || normP == "?" {
+					return ""
+				}
+				// Strip exact match with section H2 or page H1
+				if (normH2 != "" && normH2 == normP) || (normPage != "" && normPage == normP) {
+					return ""
+				}
+				// Strip bold heading banners matching H2 or Page Title
+				if (strings.Contains(inner, "<b>") || strings.Contains(inner, "<strong>")) &&
+					((normH2 != "" && (strings.Contains(normH2, normP) || strings.Contains(normP, normH2))) ||
+						(normPage != "" && (strings.Contains(normPage, normP) || strings.Contains(normP, normPage)))) &&
+					(strings.HasPrefix(normP, "article") || strings.HasPrefix(normP, "section") || strings.HasPrefix(normP, "chapter") || strings.HasPrefix(normP, "part") || len(normP) > 10) {
+					return ""
+				}
+				return pTag
+			})
+
+			secHTML = prefix + cleanedPreamble + postPreamble
+		}
+
 		bodyContent.WriteString(secHTML)
 		bodyContent.WriteString(`</section>`)
 	}
@@ -959,4 +1011,16 @@ func cleanHTMLText(s string) string {
 	tagRegex := regexp.MustCompile(`<[^>]+>`)
 	cleaned := tagRegex.ReplaceAllString(s, "")
 	return strings.TrimSpace(html.UnescapeString(cleaned))
+}
+
+func normText(s string) string {
+	tagRegex := regexp.MustCompile(`<[^>]+>`)
+	cleaned := strings.ToLower(tagRegex.ReplaceAllString(s, ""))
+	var sb strings.Builder
+	for _, r := range cleaned {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			sb.WriteRune(r)
+		}
+	}
+	return sb.String()
 }

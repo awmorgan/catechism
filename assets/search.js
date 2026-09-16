@@ -184,26 +184,48 @@
         const isFirst = currentIndex <= 0;
         const isLast = currentIndex >= matches.length - 1;
 
+        const countFormatted = matches.length.toLocaleString();
+        const currentHitFormatted = (currentIndex + 1).toLocaleString();
+
         bar.innerHTML = `
-            <div class="search-runner-info">
-                <span>🔍</span>
-                <span class="search-runner-query" title="${escapeHtml(query)}">"${escapeHtml(query)}"</span>
-                <span class="search-runner-count">${currentIndex + 1} of ${matches.length}</span>
+            <div class="search-runner-info" id="btn-runner-info" role="button" tabindex="0" title="Click to view all results" aria-label="Search results for ${escapeHtml(query)}">
+                <span class="search-runner-icon" aria-hidden="true">🔍</span>
+                <span class="search-runner-query" title="${escapeHtml(query)}">${escapeHtml(query)}</span>
+                <span class="search-runner-count">${currentHitFormatted} / ${countFormatted}</span>
             </div>
             <div class="search-runner-actions">
-                <button type="button" id="btn-runner-prev" class="btn-runner" title="Previous hit" ${isFirst ? 'disabled' : ''}>‹ Prev</button>
-                <button type="button" id="btn-runner-next" class="btn-runner" title="Next hit" ${isLast ? 'disabled' : ''}>Next ›</button>
-                <button type="button" id="btn-runner-list" class="btn-runner" title="View all results">Results</button>
-                <button type="button" id="btn-runner-close" class="btn-runner btn-runner-close" title="Exit search">✕</button>
+                <button type="button" id="btn-runner-prev" class="btn-runner" title="Previous hit" aria-label="Previous match" ${isFirst ? 'disabled' : ''}>
+                    <span class="btn-runner-icon">‹</span><span class="btn-runner-text"> Prev</span>
+                </button>
+                <button type="button" id="btn-runner-next" class="btn-runner" title="Next hit" aria-label="Next match" ${isLast ? 'disabled' : ''}>
+                    <span class="btn-runner-text">Next </span><span class="btn-runner-icon">›</span>
+                </button>
+                <button type="button" id="btn-runner-list" class="btn-runner" title="View all results" aria-label="View all results">
+                    <span class="btn-runner-list-icon" aria-hidden="true">≡</span><span class="btn-runner-text"> Results</span>
+                </button>
+                <button type="button" id="btn-runner-close" class="btn-runner btn-runner-close" title="Exit search" aria-label="Close search">✕</button>
             </div>
         `;
 
-        document.getElementById('btn-runner-prev').onclick = () => stepHit(-1);
-        document.getElementById('btn-runner-next').onclick = () => stepHit(1);
-        document.getElementById('btn-runner-list').onclick = () => {
+        const openModal = () => {
             const modal = document.getElementById('search-modal');
             if (modal) modal.showModal();
         };
+
+        const runnerInfo = document.getElementById('btn-runner-info');
+        if (runnerInfo) {
+            runnerInfo.onclick = openModal;
+            runnerInfo.onkeydown = (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    openModal();
+                }
+            };
+        }
+
+        document.getElementById('btn-runner-prev').onclick = () => stepHit(-1);
+        document.getElementById('btn-runner-next').onclick = () => stepHit(1);
+        document.getElementById('btn-runner-list').onclick = openModal;
         document.getElementById('btn-runner-close').onclick = () => {
             setActiveSearch(null);
             updateRunnerBar();
@@ -395,7 +417,6 @@
                 }
                 if (allMatch) {
                     matches.push(item);
-                    if (matches.length >= 80) break; // Limit to 80 matches for responsiveness
                 }
             }
 
@@ -411,10 +432,16 @@
             renderResults(matches, terms, isWhole);
         }
 
+        let currentRenderSession = 0;
+
         function renderResults(matches, terms, isWhole) {
+            currentRenderSession++;
+            const sessionId = currentRenderSession;
             resultsContainer.innerHTML = '';
+
+            const countFormatted = matches.length.toLocaleString();
             if (searchCountEl) {
-                searchCountEl.textContent = matches.length > 0 ? `${matches.length}${matches.length >= 80 ? '+' : ''} matches` : '';
+                searchCountEl.textContent = matches.length > 0 ? `${countFormatted} match${matches.length === 1 ? '' : 'es'}` : '';
             }
             if (!matches.length) {
                 resultsContainer.innerHTML = '<p style="padding:1rem;color:var(--text-muted);">No matching paragraphs found. Try other keywords or toggle "Whole words".</p>';
@@ -428,33 +455,70 @@
             }).join('|');
             const highlightRegex = new RegExp('(' + highlightPattern + ')', 'giu');
 
-            const frag = document.createDocumentFragment();
-            matches.forEach((m, idx) => {
-                const a = document.createElement('a');
-                a.className = 'search-item';
-                a.href = rootPrefix + m.path + '#p-' + m.p;
-                a.onclick = (e) => {
-                    e.preventDefault();
-                    modal.close();
-                    navigateToHit(idx);
-                };
+            const CHUNK_SIZE = 60;
+            let renderedCount = 0;
 
-                const header = document.createElement('div');
-                header.className = 'search-item-header';
-                header.innerHTML = `<span>¶ ${m.p}</span><span>${escapeHtml(m.title)}</span>`;
+            function renderChunk() {
+                if (sessionId !== currentRenderSession) return;
+                const nextLimit = Math.min(matches.length, renderedCount + CHUNK_SIZE);
+                const frag = document.createDocumentFragment();
 
-                // Context-centered snippet
-                const snippet = document.createElement('div');
-                snippet.className = 'search-item-snippet';
-                const snippetInfo = getMatchSnippet(m.text, terms, isWhole);
-                let snippetHTML = (snippetInfo.prefixEllipsis ? '… ' : '') + escapeHtml(snippetInfo.text) + (snippetInfo.suffixEllipsis ? ' …' : '');
-                snippet.innerHTML = snippetHTML.replace(highlightRegex, '<mark>$1</mark>');
+                for (let idx = renderedCount; idx < nextLimit; idx++) {
+                    const m = matches[idx];
+                    const a = document.createElement('a');
+                    a.className = 'search-item';
+                    a.href = rootPrefix + m.path + '#p-' + m.p;
+                    a.onclick = (e) => {
+                        e.preventDefault();
+                        modal.close();
+                        navigateToHit(idx);
+                    };
 
-                a.append(header, snippet);
-                frag.append(a);
-            });
+                    const header = document.createElement('div');
+                    header.className = 'search-item-header';
+                    header.innerHTML = `<span>¶ ${m.p}</span><span>${escapeHtml(m.title)}</span>`;
 
-            resultsContainer.append(frag);
+                    // Context-centered snippet
+                    const snippet = document.createElement('div');
+                    snippet.className = 'search-item-snippet';
+                    const snippetInfo = getMatchSnippet(m.text, terms, isWhole);
+                    let snippetHTML = (snippetInfo.prefixEllipsis ? '… ' : '') + escapeHtml(snippetInfo.text) + (snippetInfo.suffixEllipsis ? ' …' : '');
+                    snippet.innerHTML = snippetHTML.replace(highlightRegex, '<mark>$1</mark>');
+
+                    a.append(header, snippet);
+                    frag.append(a);
+                }
+
+                // Remove previous sentinel if present
+                const oldSentinel = document.getElementById('search-sentinel');
+                if (oldSentinel) oldSentinel.remove();
+
+                resultsContainer.append(frag);
+                renderedCount = nextLimit;
+
+                if (renderedCount < matches.length) {
+                    const remaining = matches.length - renderedCount;
+                    const sentinel = document.createElement('div');
+                    sentinel.id = 'search-sentinel';
+                    sentinel.style.padding = '1rem';
+                    sentinel.style.textAlign = 'center';
+                    sentinel.innerHTML = `<button type="button" class="btn-runner" style="padding:0.5rem 1.25rem;border-radius:20px;cursor:pointer;">Show more matches (${remaining.toLocaleString()} remaining)</button>`;
+                    sentinel.querySelector('button').onclick = () => renderChunk();
+                    resultsContainer.append(sentinel);
+
+                    if ('IntersectionObserver' in window) {
+                        const observer = new IntersectionObserver((entries) => {
+                            if (entries[0].isIntersecting) {
+                                observer.disconnect();
+                                renderChunk();
+                            }
+                        }, { root: resultsContainer, rootMargin: '120px' });
+                        observer.observe(sentinel);
+                    }
+                }
+            }
+
+            renderChunk();
         }
 
         // --- On Page Load: Restore Runner Bar and Word Highlighting ---

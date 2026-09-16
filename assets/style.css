@@ -892,20 +892,24 @@ details.footnotes,
 /* Floating Search Navigation Runner Bar */
 .search-runner-bar {
     position: fixed;
-    bottom: 1.5rem;
+    bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px));
     left: 50%;
     transform: translateX(-50%);
     display: flex;
     align-items: center;
-    gap: 0.75rem;
-    padding: 0.5rem 0.85rem;
+    gap: 0.65rem;
+    padding: 0.35rem 0.5rem 0.35rem 0.85rem;
     background: var(--bg-card);
     border: 1px solid var(--border);
-    border-radius: 30px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.18);
-    z-index: 90;
+    border-radius: 9999px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.16), 0 2px 6px rgba(0, 0, 0, 0.08);
+    z-index: 110;
     font-family: var(--font-sans);
     animation: runner-pop 0.25s cubic-bezier(0.33, 1, 0.68, 1);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    max-width: calc(100vw - 1.5rem);
+    box-sizing: border-box;
 }
 
 @keyframes runner-pop {
@@ -923,10 +927,22 @@ details.footnotes,
 .search-runner-info {
     display: flex;
     align-items: center;
-    gap: 0.4rem;
+    gap: 0.45rem;
     font-size: 0.85rem;
-    padding-right: 0.5rem;
+    padding-right: 0.6rem;
     border-right: 1px solid var(--border);
+    cursor: pointer;
+    user-select: none;
+    min-width: 0;
+}
+
+.search-runner-info:hover .search-runner-query {
+    text-decoration: underline;
+}
+
+.search-runner-icon {
+    font-size: 0.85rem;
+    flex-shrink: 0;
 }
 
 .search-runner-query {
@@ -941,12 +957,16 @@ details.footnotes,
 .search-runner-count {
     font-size: 0.8rem;
     color: var(--text-muted);
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
 }
 
 .search-runner-actions {
     display: flex;
     align-items: center;
     gap: 0.35rem;
+    flex-shrink: 0;
 }
 
 .btn-runner {
@@ -964,6 +984,7 @@ details.footnotes,
     cursor: pointer;
     transition: all 0.15s ease;
     user-select: none;
+    -webkit-tap-highlight-color: transparent;
 }
 
 .btn-runner:hover:not(:disabled) {
@@ -973,7 +994,7 @@ details.footnotes,
 }
 
 .btn-runner:disabled {
-    opacity: 0.4;
+    opacity: 0.35;
     cursor: not-allowed;
 }
 
@@ -982,6 +1003,7 @@ details.footnotes,
     padding: 0;
     border-radius: 50%;
     color: var(--text-muted);
+    font-size: 0.85rem;
 }
 
 .btn-runner-close:hover {
@@ -990,14 +1012,50 @@ details.footnotes,
 
 @media (max-width: 480px) {
     .search-runner-bar {
-        bottom: 0.75rem;
-        width: 94vw;
+        bottom: calc(0.6rem + env(safe-area-inset-bottom, 0px));
+        width: auto;
+        max-width: calc(100vw - 1rem);
         justify-content: space-between;
-        padding: 0.45rem 0.65rem;
+        padding: 0.3rem 0.4rem 0.3rem 0.65rem;
+        gap: 0.4rem;
+    }
+
+    .search-runner-info {
+        gap: 0.35rem;
+        padding-right: 0.45rem;
+        font-size: 0.82rem;
     }
 
     .search-runner-query {
-        max-width: 80px;
+        max-width: 110px;
+    }
+
+    .search-runner-count {
+        font-size: 0.78rem;
+    }
+
+    .btn-runner-text {
+        display: none;
+    }
+
+    .btn-runner {
+        width: 34px;
+        height: 34px;
+        padding: 0;
+        border-radius: 50%;
+        font-size: 1.05rem;
+        line-height: 1;
+    }
+
+    .btn-runner-list-icon {
+        font-size: 1.15rem;
+        line-height: 1;
+    }
+
+    .btn-runner-close {
+        width: 34px;
+        height: 34px;
+        font-size: 0.95rem;
     }
 }
 
