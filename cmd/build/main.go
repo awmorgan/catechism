@@ -225,13 +225,38 @@ func main() {
 		rawPages[0].StartID = "s-0"
 	}
 
-	// Slicing sections into contiguous pages
+	// Slicing sections into contiguous pages using actual slice indices
+	secIndexByID := make(map[string]int)
+	for idx, s := range sections {
+		secIndexByID[s.ID] = idx
+	}
+
+	getSecIndex := func(secNum int, secID string) int {
+		if idx, ok := secIndexByID[secID]; ok {
+			return idx
+		}
+		formattedID := fmt.Sprintf("s-%d", secNum)
+		if idx, ok := secIndexByID[formattedID]; ok {
+			return idx
+		}
+		for i, s := range sections {
+			num, _ := strconv.Atoi(strings.TrimPrefix(s.ID, "s-"))
+			if num >= secNum {
+				return i
+			}
+		}
+		return len(sections)
+	}
+
 	var pages []*PageDef
 	for i := 0; i < len(rawPages); i++ {
-		startSec := rawPages[i].StartSecNum
+		startSec := getSecIndex(rawPages[i].StartSecNum, rawPages[i].StartID)
 		endSec := len(sections)
-		if i+1 < len(rawPages) && rawPages[i+1].StartSecNum > startSec {
-			endSec = rawPages[i+1].StartSecNum
+		if i+1 < len(rawPages) {
+			nextStart := getSecIndex(rawPages[i+1].StartSecNum, rawPages[i+1].StartID)
+			if nextStart > startSec {
+				endSec = nextStart
+			}
 		}
 
 		var pageSecs []*Section
