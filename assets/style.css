@@ -275,6 +275,14 @@ input[type="number"] {
     padding-top: 1.5rem;
 }
 
+/* Ensure no redundant dashed line directly below page title solid border */
+.reader-main > section:first-of-type > h2:first-child,
+.reader-main > section:first-of-type > .text > h2:first-child {
+    border-top: none;
+    padding-top: 0;
+    margin-top: 0.5rem;
+}
+
 .reader-main h3 {
     font-size: 1.3rem;
     font-weight: 600;
@@ -300,6 +308,7 @@ p[id^="p-"] {
     transition: background-color 0.3s ease;
 }
 
+/* Subtle indicator when jumping to a paragraph without highlighting the entire block in garish yellow */
 p[id^="p-"]:target,
 p[id^="p-"].highlight-hit {
     background-color: var(--mark-bg);
@@ -307,6 +316,38 @@ p[id^="p-"].highlight-hit {
     padding: 0.2rem 0.4rem;
     margin-left: -0.4rem;
     margin-right: -0.4rem;
+    border-left: 3px solid var(--accent);
+    padding-left: 0.6rem;
+    margin-left: -0.6rem;
+    background-color: rgba(184, 134, 11, 0.07);
+    border-radius: 0 4px 4px 0;
+}
+
+[data-theme="dark"] p[id^="p-"]:target,
+[data-theme="dark"] p[id^="p-"].highlight-hit {
+    background-color: rgba(229, 169, 59, 0.1);
+}
+
+/* Precise word highlight for search matches */
+mark.search-word-highlight {
+    background-color: #ffd54f;
+    color: #1a1a1a;
+    padding: 0.1em 0.3em;
+    border-radius: 3px;
+    font-weight: 600;
+    box-shadow: 0 0 0 2px rgba(229, 169, 59, 0.5);
+    animation: word-pulse 1.8s ease-out;
+}
+
+[data-theme="dark"] mark.search-word-highlight {
+    background-color: #fbc02d;
+    color: #000;
+    box-shadow: 0 0 0 2px rgba(251, 192, 45, 0.5);
+}
+
+@keyframes word-pulse {
+    0% { outline: 3px solid var(--accent); }
+    100% { outline: 0px solid transparent; }
 }
 
 .paragraph-number {
@@ -502,6 +543,29 @@ details.footnotes p {
     margin: 1.2rem 0 0.5rem;
     padding-bottom: 0.3rem;
     border-bottom: 1px solid var(--border);
+    margin: 1.4rem 0 0.5rem;
+    padding-bottom: 0.35rem;
+    border-bottom: 2px solid var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.toc-section-header {
+    font-size: 0.86rem;
+    font-weight: 700;
+    color: var(--text);
+    margin: 1.1rem 0 0.4rem 0.2rem;
+    padding-bottom: 0.25rem;
+    border-bottom: 1px dashed var(--border);
+}
+
+.toc-chapter-header {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin: 0.75rem 0 0.25rem 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
 }
 
 .toc-page-link {
@@ -511,6 +575,7 @@ details.footnotes p {
     gap: 0.5rem;
     padding: 0.55rem 0.65rem;
     margin: 0.2rem 0;
+    margin: 0.2rem 0 0.2rem 0.5rem;
     border-radius: 6px;
     font-size: 0.88rem;
     color: var(--text);
@@ -702,5 +767,232 @@ details.footnotes p {
         grid-column: 1;
         text-align: left;
         align-items: flex-start;
+    }
+}
+
+/* Floating Search Navigation Runner Bar */
+.search-runner-bar {
+    position: fixed;
+    bottom: 1.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0.85rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 30px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.18);
+    z-index: 90;
+    font-family: var(--font-sans);
+    animation: runner-pop 0.25s cubic-bezier(0.33, 1, 0.68, 1);
+}
+
+@keyframes runner-pop {
+    from { opacity: 0; transform: translate(-50%, 15px); }
+    to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+.search-runner-info {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.85rem;
+    padding-right: 0.5rem;
+    border-right: 1px solid var(--border);
+}
+
+.search-runner-query {
+    font-weight: 600;
+    color: var(--accent);
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.search-runner-count {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.search-runner-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.btn-runner {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 32px;
+    padding: 0 0.65rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    color: var(--text);
+    font-size: 0.82rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    user-select: none;
+}
+
+.btn-runner:hover:not(:disabled) {
+    background: var(--accent-light);
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.btn-runner:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.btn-runner-close {
+    width: 32px;
+    padding: 0;
+    border-radius: 50%;
+    color: var(--text-muted);
+}
+
+.btn-runner-close:hover {
+    color: var(--text);
+}
+
+@media (max-width: 480px) {
+    .search-runner-bar {
+        bottom: 0.75rem;
+        width: 94vw;
+        justify-content: space-between;
+        padding: 0.45rem 0.65rem;
+    }
+    .search-runner-query {
+        max-width: 80px;
+    }
+}
+
+/* Responsive Footnote Popover (Desktop Anchored / Mobile Bottom Sheet) */
+.footnote-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.35);
+    z-index: 120;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    backdrop-filter: blur(1px);
+}
+
+.footnote-backdrop.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.footnote-popover {
+    position: fixed;
+    z-index: 125;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.22);
+    font-family: var(--font-sans);
+    display: none;
+    flex-direction: column;
+}
+
+.footnote-popover.active {
+    display: flex;
+}
+
+.footnote-popover-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.6rem 0.9rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+    border-radius: 10px 10px 0 0;
+}
+
+.footnote-popover-title {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+
+.footnote-popover-close {
+    background: transparent;
+    border: none;
+    font-size: 1rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 0 0.25rem;
+    line-height: 1;
+}
+
+.footnote-popover-close:hover {
+    color: var(--text);
+}
+
+.footnote-popover-body {
+    padding: 0.9rem 1rem;
+    font-size: 0.92rem;
+    line-height: 1.5;
+    color: var(--text);
+    overflow-y: auto;
+    max-height: 250px;
+}
+
+.footnote-popover-body a {
+    color: var(--accent);
+    text-decoration: underline;
+}
+
+/* Desktop & Tablet Floating Placement */
+@media (min-width: 640px) {
+    .footnote-popover {
+        position: absolute;
+        width: 380px;
+        max-width: 90vw;
+        animation: popover-in 0.2s cubic-bezier(0.33, 1, 0.68, 1);
+    }
+    @keyframes popover-in {
+        from { opacity: 0; transform: scale(0.96); }
+        to { opacity: 1; transform: scale(1); }
+    }
+}
+
+/* Phone / Mobile Bottom Sheet */
+@media (max-width: 639px) {
+    .footnote-popover {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        width: 100%;
+        max-height: 55vh;
+        border-radius: 16px 16px 0 0;
+        border-bottom: none;
+        box-shadow: 0 -4px 25px rgba(0, 0, 0, 0.28);
+    }
+    .footnote-popover.active {
+        animation: sheet-up 0.25s cubic-bezier(0.33, 1, 0.68, 1);
+    }
+    @keyframes sheet-up {
+        from { transform: translateY(100%); }
+        to { transform: translateY(0); }
+    }
+    .footnote-popover-header {
+        border-radius: 16px 16px 0 0;
+        padding: 0.75rem 1.2rem;
+    }
+    .footnote-popover-body {
+        padding: 1rem 1.2rem 2rem;
+        font-size: 0.96rem;
     }
 }

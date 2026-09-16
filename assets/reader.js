@@ -133,6 +133,93 @@
             };
         }
 
+        // --- Responsive Footnote Popovers ---
+        let footnotePopover = document.getElementById('footnote-popover');
+        let footnoteBackdrop = document.getElementById('footnote-backdrop');
+
+        function ensureFootnoteElements() {
+            if (!footnoteBackdrop) {
+                footnoteBackdrop = document.createElement('div');
+                footnoteBackdrop.id = 'footnote-backdrop';
+                footnoteBackdrop.className = 'footnote-backdrop';
+                document.body.appendChild(footnoteBackdrop);
+                footnoteBackdrop.onclick = closeFootnotePopover;
+            }
+            if (!footnotePopover) {
+                footnotePopover = document.createElement('div');
+                footnotePopover.id = 'footnote-popover';
+                footnotePopover.className = 'footnote-popover';
+                footnotePopover.setAttribute('role', 'dialog');
+                footnotePopover.setAttribute('aria-label', 'Footnote');
+                document.body.appendChild(footnotePopover);
+            }
+        }
+
+        function closeFootnotePopover() {
+            if (footnotePopover) footnotePopover.classList.remove('active');
+            if (footnoteBackdrop) footnoteBackdrop.classList.remove('active');
+        }
+
+        function showFootnotePopover(refLink) {
+            ensureFootnoteElements();
+            const noteId = refLink.getAttribute('href');
+            const noteEl = document.querySelector(noteId);
+            if (!noteEl) return;
+
+            // Clone note content without the backlink
+            const clone = noteEl.cloneNode(true);
+            const backlink = clone.querySelector('a[href^="#s"]');
+            const noteNum = backlink ? backlink.textContent.trim() : refLink.textContent.trim();
+            if (backlink) backlink.remove();
+
+            footnotePopover.innerHTML = `
+                <div class="footnote-popover-header">
+                    <span class="footnote-popover-title">Footnote ${noteNum}</span>
+                    <button type="button" class="footnote-popover-close" aria-label="Close footnote">✕</button>
+                </div>
+                <div class="footnote-popover-body">
+                    ${clone.innerHTML.trim()}
+                </div>
+            `;
+
+            footnotePopover.querySelector('.footnote-popover-close').onclick = closeFootnotePopover;
+
+            const isMobile = window.innerWidth < 640;
+            if (isMobile) {
+                // Mobile bottom sheet
+                footnoteBackdrop.classList.add('active');
+                footnotePopover.classList.add('active');
+            } else {
+                // Desktop / Tablet floating popover positioned near superscript
+                footnoteBackdrop.classList.add('active');
+                footnotePopover.classList.add('active');
+
+                const rect = refLink.getBoundingClientRect();
+                const popoverWidth = 380;
+                let left = rect.left + window.scrollX - (popoverWidth / 2) + (rect.width / 2);
+                left = Math.max(16, Math.min(window.innerWidth - popoverWidth - 16, left));
+
+                // Position above or below depending on space
+                let top;
+                if (rect.bottom + 220 > window.innerHeight && rect.top > 220) {
+                    top = rect.top + window.scrollY - 200;
+                } else {
+                    top = rect.bottom + window.scrollY + 8;
+                }
+
+                footnotePopover.style.left = `${left}px`;
+                footnotePopover.style.top = `${top}px`;
+            }
+        }
+
+        // Intercept all footnote reference clicks
+        document.querySelectorAll('a.note-ref').forEach(link => {
+            link.onclick = (e) => {
+                e.preventDefault();
+                showFootnotePopover(link);
+            };
+        });
+
         // --- Keyboard Navigation ---
         document.addEventListener('keydown', (e) => {
             // Ignore if inside input/textarea
@@ -140,6 +227,7 @@
 
             if (e.key === 'Escape') {
                 closeDrawer();
+                closeFootnotePopover();
                 const searchModal = document.getElementById('search-modal');
                 if (searchModal && searchModal.open) searchModal.close();
             }
