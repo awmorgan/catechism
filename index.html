@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Catechism of the Catholic Church — Modern Reader</title>
   <meta name="description" content="A fast, reader-friendly, and mobile-optimized edition of the Catechism of the Catholic Church with dark mode and adjustable typography.">
   <link rel="stylesheet" href="assets/style.css">
@@ -33,8 +33,8 @@
         <a href="pages/001.html" class="btn-icon" style="height: 48px; padding: 0 1.5rem; background: var(--accent); color: #fff; text-decoration: none; font-size: 1.05rem; font-weight: 600; border: none;">
           📖 Begin Reading (Prologue)
         </a>
-        <form id="jump-form" class="jump-form">
-          <input type="text" inputmode="numeric" pattern="[0-9]*" id="jump-input" class="jump-input" placeholder="Go to ¶ (1–2865)" style="height: 48px; width: 8.5rem; font-size: 1rem;">
+        <form id="jump-form" class="jump-form" action="javascript:void(0);">
+          <input type="text" inputmode="numeric" pattern="[0-9]*" id="jump-input" class="jump-input" placeholder="Go to ¶ (1–2865)" style="height: 48px; width: 8.5rem; font-size: 1rem;" enterkeyhint="go">
           <button type="submit" class="jump-btn" style="height: 48px; padding: 0 1rem; font-size: 1rem; font-weight: 600;">Go</button>
         </form>
       </div>

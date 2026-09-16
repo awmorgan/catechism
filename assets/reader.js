@@ -90,6 +90,17 @@
         const jumpForm = document.getElementById('jump-form');
         const jumpInput = document.getElementById('jump-input');
         if (jumpForm && jumpInput) {
+            jumpInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (typeof jumpForm.requestSubmit === 'function') {
+                        jumpForm.requestSubmit();
+                    } else {
+                        jumpForm.dispatchEvent(new Event('submit', { cancelable: true }));
+                    }
+                }
+            });
+
             jumpForm.onsubmit = (e) => {
                 e.preventDefault();
                 const pNum = parseInt(jumpInput.value.trim(), 10);
@@ -97,6 +108,9 @@
                     alert('Please enter a valid paragraph number between 1 and 2865.');
                     return;
                 }
+
+                // Dismiss virtual keyboard on mobile
+                jumpInput.blur();
 
                 // Check if paragraph is already on current page
                 const localTarget = document.getElementById('p-' + pNum);

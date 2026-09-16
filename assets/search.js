@@ -389,7 +389,6 @@
                 if (allMatch) {
                     matches.push(item);
                     if (matches.length >= 80) break; // Limit to 80 matches for responsiveness
-                    if (matches.length >= 100) break;
                 }
             }
 
@@ -409,7 +408,6 @@
             resultsContainer.innerHTML = '';
             if (searchCountEl) {
                 searchCountEl.textContent = matches.length > 0 ? `${matches.length}${matches.length >= 80 ? '+' : ''} matches` : '';
-                searchCountEl.textContent = matches.length > 0 ? `${matches.length}${matches.length >= 100 ? '+' : ''} matches` : '';
             }
             if (!matches.length) {
                 resultsContainer.innerHTML = '<p style="padding:1rem;color:var(--text-muted);">No matching paragraphs found. Try other keywords or toggle "Whole words".</p>';
@@ -424,12 +422,10 @@
             const highlightRegex = new RegExp('(' + highlightPattern + ')', 'giu');
 
             const frag = document.createDocumentFragment();
-            for (const m of matches) {
             matches.forEach((m, idx) => {
                 const a = document.createElement('a');
                 a.className = 'search-item';
                 a.href = rootPrefix + m.path + '#p-' + m.p;
-                a.onclick = () => modal.close();
                 a.onclick = (e) => {
                     e.preventDefault();
                     modal.close();
@@ -438,23 +434,17 @@
 
                 const header = document.createElement('div');
                 header.className = 'search-item-header';
-                header.innerHTML = `<span>¶ ${m.p}</span><span>${m.title}</span>`;
                 header.innerHTML = `<span>¶ ${m.p}</span><span>${escapeHtml(m.title)}</span>`;
 
-                // Highlight snippet
                 // Context-centered snippet
                 const snippet = document.createElement('div');
                 snippet.className = 'search-item-snippet';
-                let highlighted = m.text.slice(0, 240);
-                if (m.text.length > 240) highlighted += '…';
-                snippet.innerHTML = highlighted.replace(highlightRegex, '<mark>$1</mark>');
                 const snippetInfo = getMatchSnippet(m.text, terms, isWhole);
                 let snippetHTML = (snippetInfo.prefixEllipsis ? '… ' : '') + escapeHtml(snippetInfo.text) + (snippetInfo.suffixEllipsis ? ' …' : '');
                 snippet.innerHTML = snippetHTML.replace(highlightRegex, '<mark>$1</mark>');
 
                 a.append(header, snippet);
                 frag.append(a);
-            }
             });
 
             resultsContainer.append(frag);

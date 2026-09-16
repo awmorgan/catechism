@@ -361,11 +361,8 @@ func main() {
 
 	var pages []*PageDef
 	for i := 0; i < len(rawPages); i++ {
-		startSec := rawPages[i].StartSecNum
 		startSec := getSecIndex(rawPages[i].StartSecNum, rawPages[i].StartID)
 		endSec := len(sections)
-		if i+1 < len(rawPages) && rawPages[i+1].StartSecNum > startSec {
-			endSec = rawPages[i+1].StartSecNum
 		if i+1 < len(rawPages) {
 			nextStart := getSecIndex(rawPages[i+1].StartSecNum, rawPages[i+1].StartID)
 			if nextStart > startSec {
@@ -403,11 +400,10 @@ func main() {
 		page := &PageDef{
 			Index:       i + 1,
 			Filename:    filename,
-			Title:       rawPages[i].Title,
+			Title:       title,
 			Part:        part,
 			SectionName: secName,
 			ChapterName: chapName,
-			Title:       title,
 			StartID:     rawPages[i].StartID,
 			Breadcrumbs: rawPages[i].Breadcrumbs,
 			Sections:    pageSecs,
@@ -511,12 +507,6 @@ func renderTOCDrawer(pages []*PageDef) string {
 	currentChapter := ""
 
 	for _, p := range pages {
-		partName := ""
-		if len(p.Breadcrumbs) > 0 {
-			partName = p.Breadcrumbs[0]
-		}
-		if partName != currentPart && partName != "" {
-			currentPart = partName
 		if p.Part != currentPart && p.Part != "" {
 			currentPart = p.Part
 			currentSection = ""
@@ -554,10 +544,8 @@ func renderPageHTML(page *PageDef, drawerHTML string) string {
 
 	var bcHTML strings.Builder
 	bcHTML.WriteString(`<a href="../index.html">Catechism</a>`)
-	for _, b := range page.Breadcrumbs {
 	if page.Part != "" && page.Part != "Prologue" {
 		bcHTML.WriteString(` <span style="opacity:0.5">›</span> `)
-		bcHTML.WriteString(fmt.Sprintf(`<span>%s</span>`, html.EscapeString(b)))
 		bcHTML.WriteString(fmt.Sprintf(`<span>%s</span>`, html.EscapeString(page.Part)))
 	}
 	if page.SectionName != "" {
@@ -603,11 +591,9 @@ func renderPageHTML(page *PageDef, drawerHTML string) string {
 	navHTML.WriteString(`</nav>`)
 
 	var bodyContent strings.Builder
-	for _, s := range page.Sections {
 	leadingH2Regex := regexp.MustCompile(`(?s)^\s*<h2[^>]*>.*?</h2>\s*`)
 	for secIdx, s := range page.Sections {
 		bodyContent.WriteString(fmt.Sprintf(`<section class="chapter" id="%s">`, s.ID))
-		bodyContent.WriteString(s.HTML)
 		secHTML := s.HTML
 		if secIdx == 0 {
 			// Strip leading redundant <h2> that repeats the page <h1> title
@@ -622,9 +608,6 @@ func renderPageHTML(page *PageDef, drawerHTML string) string {
 		rangeStr = fmt.Sprintf("¶ %d–%d", page.MinP, page.MaxP)
 	}
 
-	partBadge := ""
-	if len(page.Breadcrumbs) > 0 {
-		partBadge = page.Breadcrumbs[0]
 	badge := page.Part
 	if page.ChapterName != "" {
 		badge = page.ChapterName
@@ -636,7 +619,7 @@ func renderPageHTML(page *PageDef, drawerHTML string) string {
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>%s — Catechism of the Catholic Church</title>
   <meta name="description" content="Catechism of the Catholic Church: %s (%s)">
   <link rel="stylesheet" href="../assets/style.css">
@@ -655,9 +638,8 @@ func renderPageHTML(page *PageDef, drawerHTML string) string {
         <button type="button" id="btn-open-search" class="btn-icon" aria-label="Search Catechism" title="Search (/)">
           🔍
         </button>
-        <form id="jump-form" class="jump-form">
-          <input type="text" inputmode="numeric" pattern="[0-9]*" id="jump-input" class="jump-input" placeholder="¶ 1–2865" aria-label="Jump to paragraph number">
-          <button type="submit" class="jump-btn">Go</button>
+        <form id="jump-form" class="jump-form" action="javascript:void(0);">
+          <input type="text" inputmode="numeric" pattern="[0-9]*" id="jump-input" class="jump-input" placeholder="¶ 1–2865" aria-label="Jump to paragraph number" enterkeyhint="go">
         </form>
         <button type="button" id="btn-font-smaller" class="btn-icon" aria-label="Smaller text" title="Smaller font">A−</button>
         <button type="button" id="btn-font-larger" class="btn-icon" aria-label="Larger text" title="Larger font">A+</button>
@@ -719,7 +701,6 @@ func renderPageHTML(page *PageDef, drawerHTML string) string {
 		html.EscapeString(page.Title),
 		rangeStr,
 		bcHTML.String(),
-		html.EscapeString(partBadge),
 		html.EscapeString(badge),
 		html.EscapeString(page.Title),
 		rangeStr,
@@ -736,18 +717,11 @@ func renderLandingPage(pages []*PageDef) string {
 	currentSection := ""
 	currentChapter := ""
 	for _, p := range pages {
-		partName := ""
-		if len(p.Breadcrumbs) > 0 {
-			partName = p.Breadcrumbs[0]
-		}
-		if partName != currentPart && partName != "" {
-			currentPart = partName
 		if p.Part != currentPart && p.Part != "" {
 			currentPart = p.Part
 			currentSection = ""
 			currentChapter = ""
 			tocListHTML.WriteString(fmt.Sprintf(`
-<div style="margin: 2rem 0 0.6rem; padding-bottom: 0.4rem; border-bottom: 2px solid var(--accent); font-family: var(--font-sans); font-size: 1.15rem; font-weight: 700; color: var(--accent);">
 <div class="landing-part-header" style="margin: 2.2rem 0 0.6rem; padding-bottom: 0.4rem; border-bottom: 2px solid var(--accent); font-family: var(--font-sans); font-size: 1.25rem; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.03em;">
   %s
 </div>`, html.EscapeString(currentPart)))
@@ -774,7 +748,6 @@ func renderLandingPage(pages []*PageDef) string {
 		}
 
 		tocListHTML.WriteString(fmt.Sprintf(`
-<a href="pages/%s" class="toc-page-link" style="background: var(--bg-card); border: 1px solid var(--border); padding: 0.75rem 1rem; margin-bottom: 0.35rem; border-radius: 8px;">
 <a href="pages/%s" class="toc-page-link" style="background: var(--bg-card); border: 1px solid var(--border); padding: 0.75rem 1rem; margin-bottom: 0.35rem; margin-left: 0.5rem; border-radius: 8px;">
   <span class="toc-link-title" style="font-size: 0.95rem; font-weight: 500;">%s</span>
   <span class="toc-link-range" style="font-size: 0.82rem; background: var(--accent-light); color: var(--accent); padding: 0.15rem 0.45rem; border-radius: 4px;">%s</span>
@@ -785,7 +758,7 @@ func renderLandingPage(pages []*PageDef) string {
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Catechism of the Catholic Church — Modern Reader</title>
   <meta name="description" content="A fast, reader-friendly, and mobile-optimized edition of the Catechism of the Catholic Church with dark mode and adjustable typography.">
   <link rel="stylesheet" href="assets/style.css">
@@ -816,8 +789,8 @@ func renderLandingPage(pages []*PageDef) string {
         <a href="pages/001.html" class="btn-icon" style="height: 48px; padding: 0 1.5rem; background: var(--accent); color: #fff; text-decoration: none; font-size: 1.05rem; font-weight: 600; border: none;">
           📖 Begin Reading (Prologue)
         </a>
-        <form id="jump-form" class="jump-form">
-          <input type="text" inputmode="numeric" pattern="[0-9]*" id="jump-input" class="jump-input" placeholder="Go to ¶ (1–2865)" style="height: 48px; width: 8.5rem; font-size: 1rem;">
+        <form id="jump-form" class="jump-form" action="javascript:void(0);">
+          <input type="text" inputmode="numeric" pattern="[0-9]*" id="jump-input" class="jump-input" placeholder="Go to ¶ (1–2865)" style="height: 48px; width: 8.5rem; font-size: 1rem;" enterkeyhint="go">
           <button type="submit" class="jump-btn" style="height: 48px; padding: 0 1rem; font-size: 1rem; font-weight: 600;">Go</button>
         </form>
       </div>

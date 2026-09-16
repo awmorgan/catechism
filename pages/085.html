@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Article 3: The Seven Petitions — Catechism of the Catholic Church</title>
   <meta name="description" content="Catechism of the Catholic Church: Article 3: The Seven Petitions (¶ 2803–2854)">
   <link rel="stylesheet" href="../assets/style.css">
@@ -21,9 +21,8 @@
         <button type="button" id="btn-open-search" class="btn-icon" aria-label="Search Catechism" title="Search (/)">
           🔍
         </button>
-        <form id="jump-form" class="jump-form">
-          <input type="text" inputmode="numeric" pattern="[0-9]*" id="jump-input" class="jump-input" placeholder="¶ 1–2865" aria-label="Jump to paragraph number">
-          <button type="submit" class="jump-btn">Go</button>
+        <form id="jump-form" class="jump-form" action="javascript:void(0);">
+          <input type="text" inputmode="numeric" pattern="[0-9]*" id="jump-input" class="jump-input" placeholder="¶ 1–2865" aria-label="Jump to paragraph number" enterkeyhint="go">
         </form>
         <button type="button" id="btn-font-smaller" class="btn-icon" aria-label="Smaller text" title="Smaller font">A−</button>
         <button type="button" id="btn-font-larger" class="btn-icon" aria-label="Larger text" title="Larger font">A+</button>
