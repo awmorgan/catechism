@@ -441,9 +441,15 @@ func renderTOCDrawer(pages []*PageDef) string {
 }
 
 func renderPageHTML(page *PageDef, drawerHTML string) string {
-	currentDrawer := strings.Replace(drawerHTML,
-		fmt.Sprintf(`data-page="%s"`, page.Filename),
-		fmt.Sprintf(`data-page="%s" class="toc-page-link current-page" aria-current="page"`, page.Filename), 1)
+	indentClass := ""
+	if strings.HasPrefix(page.Title, "Paragraph ") {
+		indentClass = " toc-indent-sub"
+	}
+	targetTag := fmt.Sprintf(`class="toc-page-link%s" data-page="%s">`, indentClass, page.Filename)
+	replacementTag := fmt.Sprintf(`class="toc-page-link current-page%s" data-page="%s" aria-current="page">
+  <span class="toc-current-badge"><span class="toc-current-dot" aria-hidden="true">●</span> You are here</span>`, indentClass, page.Filename)
+
+	currentDrawer := strings.Replace(drawerHTML, targetTag, replacementTag, 1)
 
 	var bcHTML strings.Builder
 	bcHTML.WriteString(`<a href="../index.html">Catechism</a>`)
@@ -463,6 +469,8 @@ func renderPageHTML(page *PageDef, drawerHTML string) string {
 		bcHTML.WriteString(` <span class="bc-sep">›</span> `)
 		bcHTML.WriteString(fmt.Sprintf(`<span class="bc-article">%s</span>`, html.EscapeString(page.ArticleName)))
 	}
+	bcHTML.WriteString(` <span class="bc-sep">›</span> `)
+	bcHTML.WriteString(fmt.Sprintf(`<span class="bc-current" aria-current="location">%s</span>`, html.EscapeString(page.Title)))
 
 	rangeStr := ""
 	if page.MinP > 0 && page.MaxP > 0 {
@@ -641,8 +649,10 @@ func renderPageHTML(page *PageDef, drawerHTML string) string {
 
   <div class="breadcrumbs-bar">
     <div class="breadcrumbs-container">
-      %s
-      <span id="active-reading-para" class="active-para-tag" style="display:none;" aria-live="polite"></span>
+      <div class="breadcrumbs-trail">
+        %s
+      </div>
+      <button type="button" id="active-reading-para" class="active-para-tag" style="display:none;" aria-label="Current reading paragraph" title="Click to scroll to paragraph"></button>
     </div>
   </div>
 

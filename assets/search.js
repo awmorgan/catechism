@@ -242,6 +242,33 @@
         navigateToHit(nextIdx);
     }
 
+    function scrollToSearchMatch(containerEl) {
+        if (!containerEl) return;
+
+        // Clear active hit state on any previously active marks
+        document.querySelectorAll('mark.search-active-hit').forEach(m => m.classList.remove('search-active-hit'));
+
+        const marks = containerEl.querySelectorAll('mark.search-word-highlight');
+        if (marks.length > 0) {
+            const targetMark = marks[0];
+            targetMark.classList.add('search-active-hit');
+
+            // Center the specific matching word in the viewport
+            targetMark.scrollIntoView({ block: 'center', behavior: 'smooth' });
+
+            // Re-verify after layout stabilization to ensure it is not hidden by sticky header or runner bar
+            setTimeout(() => {
+                const rect = targetMark.getBoundingClientRect();
+                const vh = window.innerHeight;
+                if (rect.top < 110 || rect.bottom > vh - 90) {
+                    targetMark.scrollIntoView({ block: 'center' });
+                }
+            }, 120);
+        } else {
+            containerEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        }
+    }
+
     function navigateToHit(targetIndex) {
         const activeSearch = getActiveSearch();
         if (!activeSearch || !activeSearch.matches[targetIndex]) return;
@@ -258,8 +285,8 @@
             updateRunnerBar();
             const pEl = document.getElementById('p-' + hit.p);
             if (pEl) {
-                pEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
                 highlightWordsInElement(pEl, activeSearch.terms || activeSearch.query.split(/\s+/), activeSearch.isWhole);
+                scrollToSearchMatch(pEl);
             }
             history.pushState(null, '', '#p-' + hit.p);
         } else {
@@ -526,14 +553,14 @@
         if (activeSearch && activeSearch.matches && activeSearch.currentIndex >= 0) {
             updateRunnerBar();
 
-            // If page loaded with target hash, highlight the matching words
+            // If page loaded with target hash, highlight the matching words and center match
             if (window.location.hash) {
                 const targetP = document.querySelector(window.location.hash);
                 if (targetP) {
                     setTimeout(() => {
-                        targetP.scrollIntoView({ block: 'center', behavior: 'smooth' });
                         highlightWordsInElement(targetP, activeSearch.terms || activeSearch.query.split(/\s+/), activeSearch.isWhole);
-                    }, 200);
+                        scrollToSearchMatch(targetP);
+                    }, 180);
                 }
             }
         }

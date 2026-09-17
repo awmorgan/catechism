@@ -72,8 +72,22 @@
             drawer.setAttribute('aria-hidden', 'false');
             // Scroll to current page in drawer after slide-in begins
             setTimeout(() => {
-                const currentLink = drawer.querySelector('.current-page');
+                let currentLink = drawer.querySelector('.current-page') || drawer.querySelector('[aria-current="page"]');
+                if (!currentLink) {
+                    const currentPath = window.location.pathname.split('/').pop() || 'index.html';
+                    currentLink = drawer.querySelector(`a[data-page="${currentPath}"]`);
+                    if (currentLink) {
+                        currentLink.classList.add('current-page');
+                        currentLink.setAttribute('aria-current', 'page');
+                    }
+                }
                 if (currentLink) {
+                    if (!currentLink.querySelector('.toc-current-badge')) {
+                        const badge = document.createElement('span');
+                        badge.className = 'toc-current-badge';
+                        badge.innerHTML = '<span class="toc-current-dot" aria-hidden="true">●</span> You are here';
+                        currentLink.prepend(badge);
+                    }
                     currentLink.scrollIntoView({ block: 'center', behavior: 'smooth' });
                 }
             }, 120);
@@ -321,11 +335,25 @@
                     if (currentPara) {
                         const pNum = currentPara.id.replace('p-', '');
                         activeParaEl.textContent = `¶ ${pNum}`;
+                        activeParaEl.dataset.para = pNum;
+                        activeParaEl.title = `Current paragraph ¶ ${pNum} (click to center)`;
                         activeParaEl.style.display = 'inline-flex';
                     } else if (window.scrollY < 80) {
                         activeParaEl.style.display = 'none';
                     }
                 }
+
+                activeParaEl.onclick = () => {
+                    const pNum = activeParaEl.dataset.para;
+                    if (pNum) {
+                        const el = document.getElementById('p-' + pNum);
+                        if (el) {
+                            el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                            el.classList.add('highlight-hit');
+                            setTimeout(() => el.classList.remove('highlight-hit'), 2000);
+                        }
+                    }
+                };
 
                 window.addEventListener('scroll', () => {
                     if (!ticking) {
@@ -337,6 +365,14 @@
                 // Initial check on load
                 updateActivePara();
             }
+        }
+
+        // Auto-scroll breadcrumbs trail so the active section / leaf is immediately visible on mobile
+        const breadcrumbsTrail = document.querySelector('.breadcrumbs-trail');
+        if (breadcrumbsTrail && window.innerWidth < 768) {
+            setTimeout(() => {
+                breadcrumbsTrail.scrollTo({ left: breadcrumbsTrail.scrollWidth, behavior: 'smooth' });
+            }, 300);
         }
     });
 })();
