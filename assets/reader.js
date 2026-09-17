@@ -30,10 +30,13 @@
 
     // --- Font Sizing Management ---
     const FONT_KEY = 'ccc-font-size';
+    const MIN_FONT_SIZE = 1.0;
+    const MAX_FONT_SIZE = 2.8;
+    const FONT_STEP = 0.15;
     let currentFontSize = parseFloat(localStorage.getItem(FONT_KEY)) || 1.15;
 
     function applyFontSize(size) {
-        currentFontSize = Math.min(2.0, Math.max(0.9, Math.round(size * 100) / 100));
+        currentFontSize = Math.min(MAX_FONT_SIZE, Math.max(MIN_FONT_SIZE, Math.round(size * 100) / 100));
         document.documentElement.style.setProperty('--reading-size', currentFontSize + 'rem');
         localStorage.setItem(FONT_KEY, String(currentFontSize));
     }
@@ -52,27 +55,28 @@
         // Font size buttons
         const smallerBtn = document.getElementById('btn-font-smaller');
         const largerBtn = document.getElementById('btn-font-larger');
-        if (smallerBtn) smallerBtn.onclick = () => applyFontSize(currentFontSize - 0.1);
-        if (largerBtn) largerBtn.onclick = () => applyFontSize(currentFontSize + 0.1);
+        if (smallerBtn) smallerBtn.onclick = () => applyFontSize(currentFontSize - FONT_STEP);
+        if (largerBtn) largerBtn.onclick = () => applyFontSize(currentFontSize + FONT_STEP);
 
         // --- TOC Drawer ---
         const drawer = document.getElementById('toc-drawer');
         const backdrop = document.getElementById('drawer-backdrop');
         const openBtn = document.getElementById('btn-open-drawer');
         const closeBtn = document.getElementById('btn-close-drawer');
+        const bottomTocBtn = document.getElementById('btn-bottom-toc');
 
         function openDrawer() {
             if (!drawer || !backdrop) return;
             drawer.classList.add('active');
             backdrop.classList.add('active');
             drawer.setAttribute('aria-hidden', 'false');
-            // Scroll to current page in drawer
-            const currentLink = drawer.querySelector('.current-page');
-            if (currentLink) {
-                requestAnimationFrame(() => {
-                    currentLink.scrollIntoView({ block: 'center' });
-                });
-            }
+            // Scroll to current page in drawer after slide-in begins
+            setTimeout(() => {
+                const currentLink = drawer.querySelector('.current-page');
+                if (currentLink) {
+                    currentLink.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                }
+            }, 120);
         }
 
         function closeDrawer() {
@@ -85,6 +89,7 @@
         if (openBtn) openBtn.onclick = openDrawer;
         if (closeBtn) closeBtn.onclick = closeDrawer;
         if (backdrop) backdrop.onclick = closeDrawer;
+        if (bottomTocBtn) bottomTocBtn.onclick = openDrawer;
 
         // --- Jump to Paragraph ---
         const jumpForm = document.getElementById('jump-form');
@@ -287,6 +292,51 @@
                     }, 150);
                 }
             } catch { }
+        }
+
+        // --- Active Reading Paragraph Tracker in Breadcrumbs ---
+        const activeParaEl = document.getElementById('active-reading-para');
+        if (activeParaEl) {
+            const paraElements = Array.from(document.querySelectorAll('p[id^="p-"]'));
+            if (paraElements.length > 0) {
+                let ticking = false;
+
+                function updateActivePara() {
+                    ticking = false;
+                    const topThreshold = 140; // below sticky header and breadcrumbs bar
+                    let currentPara = null;
+
+                    for (let i = 0; i < paraElements.length; i++) {
+                        const rect = paraElements[i].getBoundingClientRect();
+                        if (rect.top <= topThreshold) {
+                            currentPara = paraElements[i];
+                        } else {
+                            if (!currentPara && rect.top < window.innerHeight * 0.7) {
+                                currentPara = paraElements[i];
+                            }
+                            break;
+                        }
+                    }
+
+                    if (currentPara) {
+                        const pNum = currentPara.id.replace('p-', '');
+                        activeParaEl.textContent = `¶ ${pNum}`;
+                        activeParaEl.style.display = 'inline-flex';
+                    } else if (window.scrollY < 80) {
+                        activeParaEl.style.display = 'none';
+                    }
+                }
+
+                window.addEventListener('scroll', () => {
+                    if (!ticking) {
+                        window.requestAnimationFrame(updateActivePara);
+                        ticking = true;
+                    }
+                }, { passive: true });
+
+                // Initial check on load
+                updateActivePara();
+            }
         }
     });
 })();

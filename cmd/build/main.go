@@ -10,8 +10,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-
-	nethtml "golang.org/x/net/html"
 )
 
 type Section struct {
@@ -24,21 +22,13 @@ type Section struct {
 	MaxP     int    `json:"maxP"`
 }
 
-type TOCNode struct {
-	ID       string     `json:"id"`
-	SecNum   int        `json:"secNum"`
-	Title    string     `json:"title"`
-	Range    string     `json:"range"`
-	IsPart   bool       `json:"isPart"`
-	IsBranch bool       `json:"isBranch"`
-	Children []*TOCNode `json:"children,omitempty"`
-}
-
 type CanonicalMeta struct {
 	Part        string
 	SectionName string
 	ChapterName string
+	ArticleName string
 	Title       string
+	StartSecID  string
 }
 
 type PageDef struct {
@@ -47,10 +37,9 @@ type PageDef struct {
 	Part        string
 	SectionName string
 	ChapterName string
+	ArticleName string
 	Title       string
 	StartID     string
-	StartSecNum int
-	Breadcrumbs []string
 	Sections    []*Section
 	ParaNums    []int
 	MinP        int
@@ -75,103 +64,112 @@ type ReferenceData struct {
 }
 
 var canonicalPages = []CanonicalMeta{
-	// 001
-	{Part: "Prologue", SectionName: "", ChapterName: "", Title: "Prologue"},
+	// 001: Prologue
+	{Part: "Prologue", SectionName: "", ChapterName: "", ArticleName: "", Title: "Prologue", StartSecID: "s-0"},
+
 	// Part One · Section One
-	{Part: "Part One · The Profession of Faith", SectionName: "Section One · \"I Believe\" — \"We Believe\"", ChapterName: "Chapter One · Man's Capacity for God", Title: "Chapter One: Man's Capacity for God"},
-	{Part: "Part One · The Profession of Faith", SectionName: "Section One · \"I Believe\" — \"We Believe\"", ChapterName: "Chapter Two · God Comes to Meet Man", Title: "Article 1: The Revelation of God"},
-	{Part: "Part One · The Profession of Faith", SectionName: "Section One · \"I Believe\" — \"We Believe\"", ChapterName: "Chapter Two · God Comes to Meet Man", Title: "Article 2: The Transmission of Divine Revelation"},
-	{Part: "Part One · The Profession of Faith", SectionName: "Section One · \"I Believe\" — \"We Believe\"", ChapterName: "Chapter Two · God Comes to Meet Man", Title: "Article 3: Sacred Scripture"},
-	{Part: "Part One · The Profession of Faith", SectionName: "Section One · \"I Believe\" — \"We Believe\"", ChapterName: "Chapter Three · Man's Response to God", Title: "Article 1: I Believe"},
-	{Part: "Part One · The Profession of Faith", SectionName: "Section One · \"I Believe\" — \"We Believe\"", ChapterName: "Chapter Three · Man's Response to God", Title: "Article 2: We Believe"},
-	// Part One · Section Two · Chapter One
-	{Part: "Part One · The Profession of Faith", SectionName: "Section Two · The Profession of the Christian Faith", ChapterName: "Chapter One · I Believe in God the Father", Title: "Paragraph 1: I Believe in God"},
-	{Part: "Part One · The Profession of Faith", SectionName: "Section Two · The Profession of the Christian Faith", ChapterName: "Chapter One · I Believe in God the Father", Title: "Paragraph 2: The Father"},
-	{Part: "Part One · The Profession of Faith", SectionName: "Section Two · The Profession of the Christian Faith", ChapterName: "Chapter One · I Believe in God the Father", Title: "Paragraph 3: The Almighty"},
-	{Part: "Part One · The Profession of Faith", SectionName: "Section Two · The Profession of the Christian Faith", ChapterName: "Chapter One · I Believe in God the Father", Title: "Paragraph 4: The Creator"},
-	{Part: "Part One · The Profession of Faith", SectionName: "Section Two · The Profession of the Christian Faith", ChapterName: "Chapter One · I Believe in God the Father", Title: "Paragraph 5: Heaven and Earth"},
-	{Part: "Part One · The Profession of Faith", SectionName: "Section Two · The Profession of the Christian Faith", ChapterName: "Chapter One · I Believe in God the Father", Title: "Paragraph 6: Man"},
-	{Part: "Part One · The Profession of Faith", SectionName: "Section Two · The Profession of the Christian Faith", ChapterName: "Chapter One · I Believe in God the Father", Title: "Paragraph 7: The Fall"},
-	// Part One · Section Two · Chapter Two
-	{Part: "Part One · The Profession of Faith", SectionName: "Section Two · The Profession of the Christian Faith", ChapterName: "Chapter Two · I Believe in Jesus Christ, the Only Son of God", Title: "Article 2: And in Jesus Christ, His Only Son, Our Lord"},
-	{Part: "Part One · The Profession of Faith", SectionName: "Section Two · The Profession of the Christian Faith", ChapterName: "Chapter Two · I Believe in Jesus Christ, the Only Son of God", Title: "Paragraph 1: Jesus"},
-	{Part: "Part One · The Profession of Faith", SectionName: "Section Two · The Profession of the Christian Faith", ChapterName: "Chapter Two · I Believe in Jesus Christ, the Only Son of God", Title: "Paragraph 2: Christ"},
-	{Part: "Part One · The Profession of Faith", SectionName: "Section Two · The Profession of the Christian Faith", ChapterName: "Chapter Two · I Believe in Jesus Christ, the Only Son of God", Title: "Article 3: Conceived by the Holy Spirit, Born of the Virgin Mary"},
-	{Part: "Part One · The Profession of Faith", SectionName: "Section Two · The Profession of the Christian Faith", ChapterName: "Chapter Two · I Believe in Jesus Christ, the Only Son of God", Title: "Paragraph 3: The Mysteries of Christ's Life"},
-	{Part: "Part One · The Profession of Faith", SectionName: "Section Two · The Profession of the Christian Faith", ChapterName: "Chapter Two · I Believe in Jesus Christ, the Only Son of God", Title: "Article 4: Jesus Suffered Under Pontius Pilate, Was Crucified"},
-	{Part: "Part One · The Profession of Faith", SectionName: "Section Two · The Profession of the Christian Faith", ChapterName: "Chapter Two · I Believe in Jesus Christ, the Only Son of God", Title: "Paragraph 2: Jesus Died Crucified"},
-	{Part: "Part One · The Profession of Faith", SectionName: "Section Two · The Profession of the Christian Faith", ChapterName: "Chapter Two · I Believe in Jesus Christ, the Only Son of God", Title: "Paragraph 3: Jesus Christ Was Buried"},
-	{Part: "Part One · The Profession of Faith", SectionName: "Section Two · The Profession of the Christian Faith", ChapterName: "Chapter Two · I Believe in Jesus Christ, the Only Son of God", Title: "Article 5: Jesus Descended into Hell; Rose on the Third Day"},
-	{Part: "Part One · The Profession of Faith", SectionName: "Section Two · The Profession of the Christian Faith", ChapterName: "Chapter Two · I Believe in Jesus Christ, the Only Son of God", Title: "Paragraph 2: On the Third Day He Rose from the Dead"},
-	{Part: "Part One · The Profession of Faith", SectionName: "Section Two · The Profession of the Christian Faith", ChapterName: "Chapter Two · I Believe in Jesus Christ, the Only Son of God", Title: "Article 6: He Ascended into Heaven, Sits at the Right Hand"},
-	{Part: "Part One · The Profession of Faith", SectionName: "Section Two · The Profession of the Christian Faith", ChapterName: "Chapter Two · I Believe in Jesus Christ, the Only Son of God", Title: "Article 7: From Thence He Will Come to Judge"},
-	// Part One · Section Two · Chapter Three
-	{Part: "Part One · The Profession of Faith", SectionName: "Section Two · The Profession of the Christian Faith", ChapterName: "Chapter Three · I Believe in the Holy Spirit", Title: "Article 8: I Believe in the Holy Spirit"},
-	{Part: "Part One · The Profession of Faith", SectionName: "Section Two · The Profession of the Christian Faith", ChapterName: "Chapter Three · I Believe in the Holy Spirit", Title: "Article 9, Paragraph 1: The Church in God's Plan"},
-	{Part: "Part One · The Profession of Faith", SectionName: "Section Two · The Profession of the Christian Faith", ChapterName: "Chapter Three · I Believe in the Holy Spirit", Title: "Paragraph 2: The Church — People of God, Body of Christ"},
-	{Part: "Part One · The Profession of Faith", SectionName: "Section Two · The Profession of the Christian Faith", ChapterName: "Chapter Three · I Believe in the Holy Spirit", Title: "Paragraph 3: The Church Is One, Holy, Catholic, Apostolic"},
-	{Part: "Part One · The Profession of Faith", SectionName: "Section Two · The Profession of the Christian Faith", ChapterName: "Chapter Three · I Believe in the Holy Spirit", Title: "Paragraph 4: Christ's Faithful — Hierarchy, Laity, Consecrated"},
-	{Part: "Part One · The Profession of Faith", SectionName: "Section Two · The Profession of the Christian Faith", ChapterName: "Chapter Three · I Believe in the Holy Spirit", Title: "Paragraph 5: The Communion of Saints"},
-	{Part: "Part One · The Profession of Faith", SectionName: "Section Two · The Profession of the Christian Faith", ChapterName: "Chapter Three · I Believe in the Holy Spirit", Title: "Paragraph 6: Mary — Mother of Christ, Mother of the Church"},
-	{Part: "Part One · The Profession of Faith", SectionName: "Section Two · The Profession of the Christian Faith", ChapterName: "Chapter Three · I Believe in the Holy Spirit", Title: "Article 10: I Believe in the Forgiveness of Sins"},
-	{Part: "Part One · The Profession of Faith", SectionName: "Section Two · The Profession of the Christian Faith", ChapterName: "Chapter Three · I Believe in the Holy Spirit", Title: "Article 11: I Believe in the Resurrection of the Body"},
-	{Part: "Part One · The Profession of Faith", SectionName: "Section Two · The Profession of the Christian Faith", ChapterName: "Chapter Three · I Believe in the Holy Spirit", Title: "Article 12: I Believe in Life Everlasting"},
+	{Part: "Part One · The Profession of Faith", SectionName: "Section One · \"I Believe\" — \"We Believe\"", ChapterName: "Chapter One · Man's Capacity for God", ArticleName: "", Title: "Chapter One: Man's Capacity for God", StartSecID: "s-9"},
+	{Part: "Part One · The Profession of Faith", SectionName: "Section One · \"I Believe\" — \"We Believe\"", ChapterName: "Chapter Two · God Comes to Meet Man", ArticleName: "Article 1 · The Revelation of God", Title: "Article 1: The Revelation of God", StartSecID: "s-16"},
+	{Part: "Part One · The Profession of Faith", SectionName: "Section One · \"I Believe\" — \"We Believe\"", ChapterName: "Chapter Two · God Comes to Meet Man", ArticleName: "Article 2 · The Transmission of Divine Revelation", Title: "Article 2: The Transmission of Divine Revelation", StartSecID: "s-21"},
+	{Part: "Part One · The Profession of Faith", SectionName: "Section One · \"I Believe\" — \"We Believe\"", ChapterName: "Chapter Two · God Comes to Meet Man", ArticleName: "Article 3 · Sacred Scripture", Title: "Article 3: Sacred Scripture", StartSecID: "s-27"},
+	{Part: "Part One · The Profession of Faith", SectionName: "Section One · \"I Believe\" — \"We Believe\"", ChapterName: "Chapter Three · Man's Response to God", ArticleName: "Article 1 · I Believe", Title: "Article 1: I Believe", StartSecID: "s-35"},
+	{Part: "Part One · The Profession of Faith", SectionName: "Section One · \"I Believe\" — \"We Believe\"", ChapterName: "Chapter Three · Man's Response to God", ArticleName: "Article 2 · We Believe", Title: "Article 2: We Believe", StartSecID: "s-39"},
+
+	// Part One · Section Two · Chapter One: I Believe in God the Father
+	{Part: "Part One · The Profession of Faith", SectionName: "Section Two · The Profession of the Christian Faith", ChapterName: "Chapter One · I Believe in God the Father", ArticleName: "Article 1 · I Believe in God the Father Almighty, Creator of Heaven and Earth", Title: "Paragraph 1: I Believe in God", StartSecID: "s-46"},
+	{Part: "Part One · The Profession of Faith", SectionName: "Section Two · The Profession of the Christian Faith", ChapterName: "Chapter One · I Believe in God the Father", ArticleName: "Article 1 · I Believe in God the Father Almighty, Creator of Heaven and Earth", Title: "Paragraph 2: The Father", StartSecID: "s-50"},
+	{Part: "Part One · The Profession of Faith", SectionName: "Section Two · The Profession of the Christian Faith", ChapterName: "Chapter One · I Believe in God the Father", ArticleName: "Article 1 · I Believe in God the Father Almighty, Creator of Heaven and Earth", Title: "Paragraph 3: The Almighty", StartSecID: "s-51"},
+	{Part: "Part One · The Profession of Faith", SectionName: "Section Two · The Profession of the Christian Faith", ChapterName: "Chapter One · I Believe in God the Father", ArticleName: "Article 1 · I Believe in God the Father Almighty, Creator of Heaven and Earth", Title: "Paragraph 4: The Creator", StartSecID: "s-52"},
+	{Part: "Part One · The Profession of Faith", SectionName: "Section Two · The Profession of the Christian Faith", ChapterName: "Chapter One · I Believe in God the Father", ArticleName: "Article 1 · I Believe in God the Father Almighty, Creator of Heaven and Earth", Title: "Paragraph 5: Heaven and Earth", StartSecID: "s-53"},
+	{Part: "Part One · The Profession of Faith", SectionName: "Section Two · The Profession of the Christian Faith", ChapterName: "Chapter One · I Believe in God the Father", ArticleName: "Article 1 · I Believe in God the Father Almighty, Creator of Heaven and Earth", Title: "Paragraph 6: Man", StartSecID: "s-54"},
+	{Part: "Part One · The Profession of Faith", SectionName: "Section Two · The Profession of the Christian Faith", ChapterName: "Chapter One · I Believe in God the Father", ArticleName: "Article 1 · I Believe in God the Father Almighty, Creator of Heaven and Earth", Title: "Paragraph 7: The Fall", StartSecID: "s-55"},
+
+	// Part One · Section Two · Chapter Two: I Believe in Jesus Christ, the Only Son of God
+	{Part: "Part One · The Profession of Faith", SectionName: "Section Two · The Profession of the Christian Faith", ChapterName: "Chapter Two · I Believe in Jesus Christ, the Only Son of God", ArticleName: "Article 2 · \"And in Jesus Christ, His Only Son, Our Lord\"", Title: "Article 2: And in Jesus Christ, His Only Son, Our Lord", StartSecID: "s-56"},
+	{Part: "Part One · The Profession of Faith", SectionName: "Section Two · The Profession of the Christian Faith", ChapterName: "Chapter Two · I Believe in Jesus Christ, the Only Son of God", ArticleName: "Article 3 · \"He Was Conceived by the Power of the Holy Spirit...\"", Title: "Paragraph 1: The Son of God Became Man", StartSecID: "s-63"},
+	{Part: "Part One · The Profession of Faith", SectionName: "Section Two · The Profession of the Christian Faith", ChapterName: "Chapter Two · I Believe in Jesus Christ, the Only Son of God", ArticleName: "Article 3 · \"He Was Conceived by the Power of the Holy Spirit...\"", Title: "Paragraph 2: Conceived by the Power of the Holy Spirit and Born of the Virgin Mary", StartSecID: "s-65"},
+	{Part: "Part One · The Profession of Faith", SectionName: "Section Two · The Profession of the Christian Faith", ChapterName: "Chapter Two · I Believe in Jesus Christ, the Only Son of God", ArticleName: "Article 3 · \"He Was Conceived by the Power of the Holy Spirit...\"", Title: "Paragraph 3: The Mysteries of Christ's Life", StartSecID: "s-66"},
+	{Part: "Part One · The Profession of Faith", SectionName: "Section Two · The Profession of the Christian Faith", ChapterName: "Chapter Two · I Believe in Jesus Christ, the Only Son of God", ArticleName: "Article 4 · \"Jesus Christ Suffered Under Pontius Pilate...\"", Title: "Paragraph 1: Jesus and Israel", StartSecID: "s-67"},
+	{Part: "Part One · The Profession of Faith", SectionName: "Section Two · The Profession of the Christian Faith", ChapterName: "Chapter Two · I Believe in Jesus Christ, the Only Son of God", ArticleName: "Article 4 · \"Jesus Christ Suffered Under Pontius Pilate...\"", Title: "Paragraph 2: Jesus Died Crucified", StartSecID: "s-70"},
+	{Part: "Part One · The Profession of Faith", SectionName: "Section Two · The Profession of the Christian Faith", ChapterName: "Chapter Two · I Believe in Jesus Christ, the Only Son of God", ArticleName: "Article 4 · \"Jesus Christ Suffered Under Pontius Pilate...\"", Title: "Paragraph 3: Jesus Christ Was Buried", StartSecID: "s-71"},
+	{Part: "Part One · The Profession of Faith", SectionName: "Section Two · The Profession of the Christian Faith", ChapterName: "Chapter Two · I Believe in Jesus Christ, the Only Son of God", ArticleName: "Article 5 · \"He Descended into Hell; on the Third Day He Rose...\"", Title: "Paragraph 1: Christ Descended into Hell", StartSecID: "s-72"},
+	{Part: "Part One · The Profession of Faith", SectionName: "Section Two · The Profession of the Christian Faith", ChapterName: "Chapter Two · I Believe in Jesus Christ, the Only Son of God", ArticleName: "Article 5 · \"He Descended into Hell; on the Third Day He Rose...\"", Title: "Paragraph 2: On the Third Day He Rose from the Dead", StartSecID: "s-75"},
+	{Part: "Part One · The Profession of Faith", SectionName: "Section Two · The Profession of the Christian Faith", ChapterName: "Chapter Two · I Believe in Jesus Christ, the Only Son of God", ArticleName: "Article 6 · \"He Ascended into Heaven...\"", Title: "Article 6: He Ascended into Heaven, Sits at the Right Hand", StartSecID: "s-76"},
+	{Part: "Part One · The Profession of Faith", SectionName: "Section Two · The Profession of the Christian Faith", ChapterName: "Chapter Two · I Believe in Jesus Christ, the Only Son of God", ArticleName: "Article 7 · \"From Thence He Will Come Again to Judge...\"", Title: "Article 7: From Thence He Will Come to Judge", StartSecID: "s-79"},
+
+	// Part One · Section Two · Chapter Three: I Believe in the Holy Spirit
+	{Part: "Part One · The Profession of Faith", SectionName: "Section Two · The Profession of the Christian Faith", ChapterName: "Chapter Three · I Believe in the Holy Spirit", ArticleName: "Article 8 · \"I Believe in the Holy Spirit\"", Title: "Article 8: I Believe in the Holy Spirit", StartSecID: "s-83"},
+	{Part: "Part One · The Profession of Faith", SectionName: "Section Two · The Profession of the Christian Faith", ChapterName: "Chapter Three · I Believe in the Holy Spirit", ArticleName: "Article 9 · \"I Believe in the Holy Catholic Church\"", Title: "Paragraph 1: The Church in God's Plan", StartSecID: "s-92"},
+	{Part: "Part One · The Profession of Faith", SectionName: "Section Two · The Profession of the Christian Faith", ChapterName: "Chapter Three · I Believe in the Holy Spirit", ArticleName: "Article 9 · \"I Believe in the Holy Catholic Church\"", Title: "Paragraph 2: The Church — People of God, Body of Christ", StartSecID: "s-95"},
+	{Part: "Part One · The Profession of Faith", SectionName: "Section Two · The Profession of the Christian Faith", ChapterName: "Chapter Three · I Believe in the Holy Spirit", ArticleName: "Article 9 · \"I Believe in the Holy Catholic Church\"", Title: "Paragraph 3: The Church Is One, Holy, Catholic, Apostolic", StartSecID: "s-96"},
+	{Part: "Part One · The Profession of Faith", SectionName: "Section Two · The Profession of the Christian Faith", ChapterName: "Chapter Three · I Believe in the Holy Spirit", ArticleName: "Article 9 · \"I Believe in the Holy Catholic Church\"", Title: "Paragraph 4: Christ's Faithful — Hierarchy, Laity, Consecrated", StartSecID: "s-97"},
+	{Part: "Part One · The Profession of Faith", SectionName: "Section Two · The Profession of the Christian Faith", ChapterName: "Chapter Three · I Believe in the Holy Spirit", ArticleName: "Article 9 · \"I Believe in the Holy Catholic Church\"", Title: "Paragraph 5: The Communion of Saints", StartSecID: "s-98"},
+	{Part: "Part One · The Profession of Faith", SectionName: "Section Two · The Profession of the Christian Faith", ChapterName: "Chapter Three · I Believe in the Holy Spirit", ArticleName: "Article 9 · \"I Believe in the Holy Catholic Church\"", Title: "Paragraph 6: Mary — Mother of Christ, Mother of the Church", StartSecID: "s-99"},
+	{Part: "Part One · The Profession of Faith", SectionName: "Section Two · The Profession of the Christian Faith", ChapterName: "Chapter Three · I Believe in the Holy Spirit", ArticleName: "Article 10 · \"I Believe in the Forgiveness of Sins\"", Title: "Article 10: I Believe in the Forgiveness of Sins", StartSecID: "s-100"},
+	{Part: "Part One · The Profession of Faith", SectionName: "Section Two · The Profession of the Christian Faith", ChapterName: "Chapter Three · I Believe in the Holy Spirit", ArticleName: "Article 11 · \"I Believe in the Resurrection of the Body\"", Title: "Article 11: I Believe in the Resurrection of the Body", StartSecID: "s-104"},
+	{Part: "Part One · The Profession of Faith", SectionName: "Section Two · The Profession of the Christian Faith", ChapterName: "Chapter Three · I Believe in the Holy Spirit", ArticleName: "Article 12 · \"I Believe in Life Everlasting\"", Title: "Article 12: I Believe in Life Everlasting", StartSecID: "s-109"},
+
 	// Part Two · Section One
-	{Part: "Part Two · The Celebration of the Christian Mystery", SectionName: "Section One · The Sacramental Economy", ChapterName: "Chapter One · The Paschal Mystery in the Age of the Church", Title: "Article 1: The Liturgy — Work of the Holy Trinity"},
-	{Part: "Part Two · The Celebration of the Christian Mystery", SectionName: "Section One · The Sacramental Economy", ChapterName: "Chapter One · The Paschal Mystery in the Age of the Church", Title: "Article 2: The Paschal Mystery in the Church's Sacraments"},
-	{Part: "Part Two · The Celebration of the Christian Mystery", SectionName: "Section One · The Sacramental Economy", ChapterName: "Chapter Two · The Sacramental Celebration of the Paschal Mystery", Title: "Article 1: Celebrating the Church's Liturgy"},
-	{Part: "Part Two · The Celebration of the Christian Mystery", SectionName: "Section One · The Sacramental Economy", ChapterName: "Chapter Two · The Sacramental Celebration of the Paschal Mystery", Title: "Article 2: Liturgical Diversity and the Unity of the Mystery"},
+	{Part: "Part Two · The Celebration of the Christian Mystery", SectionName: "Section One · The Sacramental Economy", ChapterName: "Chapter One · The Paschal Mystery in the Age of the Church", ArticleName: "Article 1 · The Liturgy — Work of the Holy Trinity", Title: "Article 1: The Liturgy — Work of the Holy Trinity", StartSecID: "s-119"},
+	{Part: "Part Two · The Celebration of the Christian Mystery", SectionName: "Section One · The Sacramental Economy", ChapterName: "Chapter One · The Paschal Mystery in the Age of the Church", ArticleName: "Article 2 · The Paschal Mystery in the Church's Sacraments", Title: "Article 2: The Paschal Mystery in the Church's Sacraments", StartSecID: "s-127"},
+	{Part: "Part Two · The Celebration of the Christian Mystery", SectionName: "Section One · The Sacramental Economy", ChapterName: "Chapter Two · The Sacramental Celebration of the Paschal Mystery", ArticleName: "Article 1 · Celebrating the Church's Liturgy", Title: "Article 1: Celebrating the Church's Liturgy", StartSecID: "s-135"},
+	{Part: "Part Two · The Celebration of the Christian Mystery", SectionName: "Section One · The Sacramental Economy", ChapterName: "Chapter Two · The Sacramental Celebration of the Paschal Mystery", ArticleName: "Article 2 · Liturgical Diversity and the Unity of the Mystery", Title: "Article 2: Liturgical Diversity and the Unity of the Mystery", StartSecID: "s-142"},
+
 	// Part Two · Section Two
-	{Part: "Part Two · The Celebration of the Christian Mystery", SectionName: "Section Two · The Seven Sacraments of the Church", ChapterName: "Chapter One · The Sacraments of Christian Initiation", Title: "Article 1: The Sacrament of Baptism"},
-	{Part: "Part Two · The Celebration of the Christian Mystery", SectionName: "Section Two · The Seven Sacraments of the Church", ChapterName: "Chapter One · The Sacraments of Christian Initiation", Title: "Article 2: The Sacrament of Confirmation"},
-	{Part: "Part Two · The Celebration of the Christian Mystery", SectionName: "Section Two · The Seven Sacraments of the Church", ChapterName: "Chapter One · The Sacraments of Christian Initiation", Title: "Article 3: The Sacrament of the Eucharist"},
-	{Part: "Part Two · The Celebration of the Christian Mystery", SectionName: "Section Two · The Seven Sacraments of the Church", ChapterName: "Chapter Two · The Sacraments of Healing", Title: "Article 4: The Sacrament of Penance and Reconciliation"},
-	{Part: "Part Two · The Celebration of the Christian Mystery", SectionName: "Section Two · The Seven Sacraments of the Church", ChapterName: "Chapter Two · The Sacraments of Healing", Title: "Article 5: The Anointing of the Sick"},
-	{Part: "Part Two · The Celebration of the Christian Mystery", SectionName: "Section Two · The Seven Sacraments of the Church", ChapterName: "Chapter Three · The Sacraments at the Service of Communion", Title: "Article 6: The Sacrament of Holy Orders"},
-	{Part: "Part Two · The Celebration of the Christian Mystery", SectionName: "Section Two · The Seven Sacraments of the Church", ChapterName: "Chapter Three · The Sacraments at the Service of Communion", Title: "Article 7: The Sacrament of Matrimony"},
-	{Part: "Part Two · The Celebration of the Christian Mystery", SectionName: "Section Two · The Seven Sacraments of the Church", ChapterName: "Chapter Four · Other Liturgical Celebrations", Title: "Article 1: Sacramentals"},
-	{Part: "Part Two · The Celebration of the Christian Mystery", SectionName: "Section Two · The Seven Sacraments of the Church", ChapterName: "Chapter Four · Other Liturgical Celebrations", Title: "Article 2: Christian Funerals"},
+	{Part: "Part Two · The Celebration of the Christian Mystery", SectionName: "Section Two · The Seven Sacraments of the Church", ChapterName: "Chapter One · The Sacraments of Christian Initiation", ArticleName: "Article 1 · The Sacrament of Baptism", Title: "Article 1: The Sacrament of Baptism", StartSecID: "s-145"},
+	{Part: "Part Two · The Celebration of the Christian Mystery", SectionName: "Section Two · The Seven Sacraments of the Church", ChapterName: "Chapter One · The Sacraments of Christian Initiation", ArticleName: "Article 2 · The Sacrament of Confirmation", Title: "Article 2: The Sacrament of Confirmation", StartSecID: "s-157"},
+	{Part: "Part Two · The Celebration of the Christian Mystery", SectionName: "Section Two · The Seven Sacraments of the Church", ChapterName: "Chapter One · The Sacraments of Christian Initiation", ArticleName: "Article 3 · The Sacrament of the Eucharist", Title: "Article 3: The Sacrament of the Eucharist", StartSecID: "s-165"},
+	{Part: "Part Two · The Celebration of the Christian Mystery", SectionName: "Section Two · The Seven Sacraments of the Church", ChapterName: "Chapter Two · The Sacraments of Healing", ArticleName: "Article 4 · The Sacrament of Penance and Reconciliation", Title: "Article 4: The Sacrament of Penance and Reconciliation", StartSecID: "s-175"},
+	{Part: "Part Two · The Celebration of the Christian Mystery", SectionName: "Section Two · The Seven Sacraments of the Church", ChapterName: "Chapter Two · The Sacraments of Healing", ArticleName: "Article 5 · The Anointing of the Sick", Title: "Article 5: The Anointing of the Sick", StartSecID: "s-190"},
+	{Part: "Part Two · The Celebration of the Christian Mystery", SectionName: "Section Two · The Seven Sacraments of the Church", ChapterName: "Chapter Three · The Sacraments at the Service of Communion", ArticleName: "Article 6 · The Sacrament of Holy Orders", Title: "Article 6: The Sacrament of Holy Orders", StartSecID: "s-198"},
+	{Part: "Part Two · The Celebration of the Christian Mystery", SectionName: "Section Two · The Seven Sacraments of the Church", ChapterName: "Chapter Three · The Sacraments at the Service of Communion", ArticleName: "Article 7 · The Sacrament of Matrimony", Title: "Article 7: The Sacrament of Matrimony", StartSecID: "s-209"},
+	{Part: "Part Two · The Celebration of the Christian Mystery", SectionName: "Section Two · The Seven Sacraments of the Church", ChapterName: "Chapter Four · Other Liturgical Celebrations", ArticleName: "Article 1 · Sacramentals", Title: "Article 1: Sacramentals", StartSecID: "s-218"},
+	{Part: "Part Two · The Celebration of the Christian Mystery", SectionName: "Section Two · The Seven Sacraments of the Church", ChapterName: "Chapter Four · Other Liturgical Celebrations", ArticleName: "Article 2 · Christian Funerals", Title: "Article 2: Christian Funerals", StartSecID: "s-222"},
+
 	// Part Three · Section One
-	{Part: "Part Three · Life in Christ", SectionName: "Section One · Man's Vocation: Life in the Spirit", ChapterName: "Chapter One · The Dignity of the Human Person", Title: "Article 1: Man, the Image of God"},
-	{Part: "Part Three · Life in Christ", SectionName: "Section One · Man's Vocation: Life in the Spirit", ChapterName: "Chapter One · The Dignity of the Human Person", Title: "Article 2: Our Vocation to Beatitude"},
-	{Part: "Part Three · Life in Christ", SectionName: "Section One · Man's Vocation: Life in the Spirit", ChapterName: "Chapter One · The Dignity of the Human Person", Title: "Article 3: Man's Freedom"},
-	{Part: "Part Three · Life in Christ", SectionName: "Section One · Man's Vocation: Life in the Spirit", ChapterName: "Chapter One · The Dignity of the Human Person", Title: "Article 4: The Morality of Human Acts"},
-	{Part: "Part Three · Life in Christ", SectionName: "Section One · Man's Vocation: Life in the Spirit", ChapterName: "Chapter One · The Dignity of the Human Person", Title: "Article 5: The Morality of the Passions"},
-	{Part: "Part Three · Life in Christ", SectionName: "Section One · Man's Vocation: Life in the Spirit", ChapterName: "Chapter One · The Dignity of the Human Person", Title: "Article 6: Moral Conscience"},
-	{Part: "Part Three · Life in Christ", SectionName: "Section One · Man's Vocation: Life in the Spirit", ChapterName: "Chapter One · The Dignity of the Human Person", Title: "Article 7: The Virtues"},
-	{Part: "Part Three · Life in Christ", SectionName: "Section One · Man's Vocation: Life in the Spirit", ChapterName: "Chapter One · The Dignity of the Human Person", Title: "Article 8: Sin"},
-	{Part: "Part Three · Life in Christ", SectionName: "Section One · Man's Vocation: Life in the Spirit", ChapterName: "Chapter Two · The Human Community", Title: "Article 1: The Person and Society"},
-	{Part: "Part Three · Life in Christ", SectionName: "Section One · Man's Vocation: Life in the Spirit", ChapterName: "Chapter Two · The Human Community", Title: "Article 2: Participation in Social Life"},
-	{Part: "Part Three · Life in Christ", SectionName: "Section One · Man's Vocation: Life in the Spirit", ChapterName: "Chapter Two · The Human Community", Title: "Article 3: Social Justice"},
-	{Part: "Part Three · Life in Christ", SectionName: "Section One · Man's Vocation: Life in the Spirit", ChapterName: "Chapter Three · God's Salvation: Law and Grace", Title: "Article 1: The Moral Law"},
-	{Part: "Part Three · Life in Christ", SectionName: "Section One · Man's Vocation: Life in the Spirit", ChapterName: "Chapter Three · God's Salvation: Law and Grace", Title: "Article 2: Grace and Justification"},
-	{Part: "Part Three · Life in Christ", SectionName: "Section One · Man's Vocation: Life in the Spirit", ChapterName: "Chapter Three · God's Salvation: Law and Grace", Title: "Article 3: The Church, Mother and Teacher"},
+	{Part: "Part Three · Life in Christ", SectionName: "Section One · Man's Vocation: Life in the Spirit", ChapterName: "Chapter One · The Dignity of the Human Person", ArticleName: "Article 1 · Man, the Image of God", Title: "Article 1: Man, the Image of God", StartSecID: "s-226"},
+	{Part: "Part Three · Life in Christ", SectionName: "Section One · Man's Vocation: Life in the Spirit", ChapterName: "Chapter One · The Dignity of the Human Person", ArticleName: "Article 2 · Our Vocation to Beatitude", Title: "Article 2: Our Vocation to Beatitude", StartSecID: "s-232"},
+	{Part: "Part Three · Life in Christ", SectionName: "Section One · Man's Vocation: Life in the Spirit", ChapterName: "Chapter One · The Dignity of the Human Person", ArticleName: "Article 3 · Man's Freedom", Title: "Article 3: Man's Freedom", StartSecID: "s-237"},
+	{Part: "Part Three · Life in Christ", SectionName: "Section One · Man's Vocation: Life in the Spirit", ChapterName: "Chapter One · The Dignity of the Human Person", ArticleName: "Article 4 · The Morality of Human Acts", Title: "Article 4: The Morality of Human Acts", StartSecID: "s-242"},
+	{Part: "Part Three · Life in Christ", SectionName: "Section One · Man's Vocation: Life in the Spirit", ChapterName: "Chapter One · The Dignity of the Human Person", ArticleName: "Article 5 · The Morality of the Passions", Title: "Article 5: The Morality of the Passions", StartSecID: "s-247"},
+	{Part: "Part Three · Life in Christ", SectionName: "Section One · Man's Vocation: Life in the Spirit", ChapterName: "Chapter One · The Dignity of the Human Person", ArticleName: "Article 6 · Moral Conscience", Title: "Article 6: Moral Conscience", StartSecID: "s-252"},
+	{Part: "Part Three · Life in Christ", SectionName: "Section One · Man's Vocation: Life in the Spirit", ChapterName: "Chapter One · The Dignity of the Human Person", ArticleName: "Article 7 · The Virtues", Title: "Article 7: The Virtues", StartSecID: "s-259"},
+	{Part: "Part Three · Life in Christ", SectionName: "Section One · Man's Vocation: Life in the Spirit", ChapterName: "Chapter One · The Dignity of the Human Person", ArticleName: "Article 8 · Sin", Title: "Article 8: Sin", StartSecID: "s-265"},
+	{Part: "Part Three · Life in Christ", SectionName: "Section One · Man's Vocation: Life in the Spirit", ChapterName: "Chapter Two · The Human Community", ArticleName: "Article 1 · The Person and Society", Title: "Article 1: The Person and Society", StartSecID: "s-272"},
+	{Part: "Part Three · Life in Christ", SectionName: "Section One · Man's Vocation: Life in the Spirit", ChapterName: "Chapter Two · The Human Community", ArticleName: "Article 2 · Participation in Social Life", Title: "Article 2: Participation in Social Life", StartSecID: "s-277"},
+	{Part: "Part Three · Life in Christ", SectionName: "Section One · Man's Vocation: Life in the Spirit", ChapterName: "Chapter Two · The Human Community", ArticleName: "Article 3 · Social Justice", Title: "Article 3: Social Justice", StartSecID: "s-282"},
+	{Part: "Part Three · Life in Christ", SectionName: "Section One · Man's Vocation: Life in the Spirit", ChapterName: "Chapter Three · God's Salvation: Law and Grace", ArticleName: "Article 1 · The Moral Law", Title: "Article 1: The Moral Law", StartSecID: "s-288"},
+	{Part: "Part Three · Life in Christ", SectionName: "Section One · Man's Vocation: Life in the Spirit", ChapterName: "Chapter Three · God's Salvation: Law and Grace", ArticleName: "Article 2 · Grace and Justification", Title: "Article 2: Grace and Justification", StartSecID: "s-295"},
+	{Part: "Part Three · Life in Christ", SectionName: "Section One · Man's Vocation: Life in the Spirit", ChapterName: "Chapter Three · God's Salvation: Law and Grace", ArticleName: "Article 3 · The Church, Mother and Teacher", Title: "Article 3: The Church, Mother and Teacher", StartSecID: "s-301"},
+
 	// Part Three · Section Two: The Ten Commandments
-	{Part: "Part Three · Life in Christ", SectionName: "Section Two · The Ten Commandments", ChapterName: "Chapter One · \"You Shall Love the Lord Your God...\"", Title: "Article 1: The First Commandment"},
-	{Part: "Part Three · Life in Christ", SectionName: "Section Two · The Ten Commandments", ChapterName: "Chapter One · \"You Shall Love the Lord Your God...\"", Title: "Article 2: The Second Commandment"},
-	{Part: "Part Three · Life in Christ", SectionName: "Section Two · The Ten Commandments", ChapterName: "Chapter One · \"You Shall Love the Lord Your God...\"", Title: "Article 3: The Third Commandment"},
-	{Part: "Part Three · Life in Christ", SectionName: "Section Two · The Ten Commandments", ChapterName: "Chapter Two · \"You Shall Love Your Neighbor as Yourself\"", Title: "Article 4: The Fourth Commandment"},
-	{Part: "Part Three · Life in Christ", SectionName: "Section Two · The Ten Commandments", ChapterName: "Chapter Two · \"You Shall Love Your Neighbor as Yourself\"", Title: "Article 5: The Fifth Commandment"},
-	{Part: "Part Three · Life in Christ", SectionName: "Section Two · The Ten Commandments", ChapterName: "Chapter Two · \"You Shall Love Your Neighbor as Yourself\"", Title: "Article 6: The Sixth Commandment"},
-	{Part: "Part Three · Life in Christ", SectionName: "Section Two · The Ten Commandments", ChapterName: "Chapter Two · \"You Shall Love Your Neighbor as Yourself\"", Title: "Article 7: The Seventh Commandment"},
-	{Part: "Part Three · Life in Christ", SectionName: "Section Two · The Ten Commandments", ChapterName: "Chapter Two · \"You Shall Love Your Neighbor as Yourself\"", Title: "Article 8: The Eighth Commandment"},
-	{Part: "Part Three · Life in Christ", SectionName: "Section Two · The Ten Commandments", ChapterName: "Chapter Two · \"You Shall Love Your Neighbor as Yourself\"", Title: "Article 9: The Ninth Commandment"},
-	{Part: "Part Three · Life in Christ", SectionName: "Section Two · The Ten Commandments", ChapterName: "Chapter Two · \"You Shall Love Your Neighbor as Yourself\"", Title: "Article 10: The Tenth Commandment"},
+	{Part: "Part Three · Life in Christ", SectionName: "Section Two · The Ten Commandments", ChapterName: "Chapter One · \"You Shall Love the Lord Your God...\"", ArticleName: "Article 1 · The First Commandment", Title: "Article 1: The First Commandment", StartSecID: "s-307"},
+	{Part: "Part Three · Life in Christ", SectionName: "Section Two · The Ten Commandments", ChapterName: "Chapter One · \"You Shall Love the Lord Your God...\"", ArticleName: "Article 2 · The Second Commandment", Title: "Article 2: The Second Commandment", StartSecID: "s-317"},
+	{Part: "Part Three · Life in Christ", SectionName: "Section Two · The Ten Commandments", ChapterName: "Chapter One · \"You Shall Love the Lord Your God...\"", ArticleName: "Article 3 · The Third Commandment", Title: "Article 3: The Third Commandment", StartSecID: "s-323"},
+	{Part: "Part Three · Life in Christ", SectionName: "Section Two · The Ten Commandments", ChapterName: "Chapter Two · \"You Shall Love Your Neighbor as Yourself\"", ArticleName: "Article 4 · The Fourth Commandment", Title: "Article 4: The Fourth Commandment", StartSecID: "s-328"},
+	{Part: "Part Three · Life in Christ", SectionName: "Section Two · The Ten Commandments", ChapterName: "Chapter Two · \"You Shall Love Your Neighbor as Yourself\"", ArticleName: "Article 5 · The Fifth Commandment", Title: "Article 5: The Fifth Commandment", StartSecID: "s-337"},
+	{Part: "Part Three · Life in Christ", SectionName: "Section Two · The Ten Commandments", ChapterName: "Chapter Two · \"You Shall Love Your Neighbor as Yourself\"", ArticleName: "Article 6 · The Sixth Commandment", Title: "Article 6: The Sixth Commandment", StartSecID: "s-343"},
+	{Part: "Part Three · Life in Christ", SectionName: "Section Two · The Ten Commandments", ChapterName: "Chapter Two · \"You Shall Love Your Neighbor as Yourself\"", ArticleName: "Article 7 · The Seventh Commandment", Title: "Article 7: The Seventh Commandment", StartSecID: "s-350"},
+	{Part: "Part Three · Life in Christ", SectionName: "Section Two · The Ten Commandments", ChapterName: "Chapter Two · \"You Shall Love Your Neighbor as Yourself\"", ArticleName: "Article 8 · The Eighth Commandment", Title: "Article 8: The Eighth Commandment", StartSecID: "s-359"},
+	{Part: "Part Three · Life in Christ", SectionName: "Section Two · The Ten Commandments", ChapterName: "Chapter Two · \"You Shall Love Your Neighbor as Yourself\"", ArticleName: "Article 9 · The Ninth Commandment", Title: "Article 9: The Ninth Commandment", StartSecID: "s-368"},
+	{Part: "Part Three · Life in Christ", SectionName: "Section Two · The Ten Commandments", ChapterName: "Chapter Two · \"You Shall Love Your Neighbor as Yourself\"", ArticleName: "Article 10 · The Tenth Commandment", Title: "Article 10: The Tenth Commandment", StartSecID: "s-373"},
+
 	// Part Four · Section One
-	{Part: "Part Four · Christian Prayer", SectionName: "Section One · Prayer in the Christian Life", ChapterName: "Chapter One · The Revelation of Prayer", Title: "Article 1: In the Old Testament"},
-	{Part: "Part Four · Christian Prayer", SectionName: "Section One · Prayer in the Christian Life", ChapterName: "Chapter One · The Revelation of Prayer", Title: "Article 2: In the Fullness of Time"},
-	{Part: "Part Four · Christian Prayer", SectionName: "Section One · Prayer in the Christian Life", ChapterName: "Chapter One · The Revelation of Prayer", Title: "Article 3: In the Age of the Church"},
-	{Part: "Part Four · Christian Prayer", SectionName: "Section One · Prayer in the Christian Life", ChapterName: "Chapter Two · The Tradition of Prayer", Title: "Article 1: At the Wellsprings of Prayer"},
-	{Part: "Part Four · Christian Prayer", SectionName: "Section One · Prayer in the Christian Life", ChapterName: "Chapter Two · The Tradition of Prayer", Title: "Article 2: The Way of Prayer"},
-	{Part: "Part Four · Christian Prayer", SectionName: "Section One · Prayer in the Christian Life", ChapterName: "Chapter Two · The Tradition of Prayer", Title: "Article 3: Guides for Prayer"},
-	{Part: "Part Four · Christian Prayer", SectionName: "Section One · Prayer in the Christian Life", ChapterName: "Chapter Three · The Life of Prayer", Title: "Article 1: Expressions of Prayer"},
-	{Part: "Part Four · Christian Prayer", SectionName: "Section One · Prayer in the Christian Life", ChapterName: "Chapter Three · The Life of Prayer", Title: "Article 2: The Battle of Prayer"},
-	{Part: "Part Four · Christian Prayer", SectionName: "Section One · Prayer in the Christian Life", ChapterName: "Chapter Three · The Life of Prayer", Title: "Article 3: The Prayer of the Hour of Jesus"},
+	{Part: "Part Four · Christian Prayer", SectionName: "Section One · Prayer in the Christian Life", ChapterName: "Chapter One · The Revelation of Prayer", ArticleName: "Article 1 · In the Old Testament", Title: "Article 1: In the Old Testament", StartSecID: "s-380"},
+	{Part: "Part Four · Christian Prayer", SectionName: "Section One · Prayer in the Christian Life", ChapterName: "Chapter One · The Revelation of Prayer", ArticleName: "Article 2 · In the Fullness of Time", Title: "Article 2: In the Fullness of Time", StartSecID: "s-386"},
+	{Part: "Part Four · Christian Prayer", SectionName: "Section One · Prayer in the Christian Life", ChapterName: "Chapter One · The Revelation of Prayer", ArticleName: "Article 3 · In the Age of the Church", Title: "Article 3: In the Age of the Church", StartSecID: "s-389"},
+	{Part: "Part Four · Christian Prayer", SectionName: "Section One · Prayer in the Christian Life", ChapterName: "Chapter Two · The Tradition of Prayer", ArticleName: "Article 1 · At the Wellsprings of Prayer", Title: "Article 1: At the Wellsprings of Prayer", StartSecID: "s-397"},
+	{Part: "Part Four · Christian Prayer", SectionName: "Section One · Prayer in the Christian Life", ChapterName: "Chapter Two · The Tradition of Prayer", ArticleName: "Article 2 · The Way of Prayer", Title: "Article 2: The Way of Prayer", StartSecID: "s-401"},
+	{Part: "Part Four · Christian Prayer", SectionName: "Section One · Prayer in the Christian Life", ChapterName: "Chapter Two · The Tradition of Prayer", ArticleName: "Article 3 · Guides for Prayer", Title: "Article 3: Guides for Prayer", StartSecID: "s-404"},
+	{Part: "Part Four · Christian Prayer", SectionName: "Section One · Prayer in the Christian Life", ChapterName: "Chapter Three · The Life of Prayer", ArticleName: "Article 1 · Expressions of Prayer", Title: "Article 1: Expressions of Prayer", StartSecID: "s-407"},
+	{Part: "Part Four · Christian Prayer", SectionName: "Section One · Prayer in the Christian Life", ChapterName: "Chapter Three · The Life of Prayer", ArticleName: "Article 2 · The Battle of Prayer", Title: "Article 2: The Battle of Prayer", StartSecID: "s-413"},
+	{Part: "Part Four · Christian Prayer", SectionName: "Section One · Prayer in the Christian Life", ChapterName: "Chapter Three · The Life of Prayer", ArticleName: "Article 3 · The Prayer of the Hour of Jesus", Title: "Article 3: The Prayer of the Hour of Jesus", StartSecID: "s-419"},
+
 	// Part Four · Section Two: The Lord's Prayer
-	{Part: "Part Four · Christian Prayer", SectionName: "Section Two · The Lord's Prayer: \"Our Father!\"", ChapterName: "", Title: "Article 1: The Summary of the Whole Gospel"},
-	{Part: "Part Four · Christian Prayer", SectionName: "Section Two · The Lord's Prayer: \"Our Father!\"", ChapterName: "", Title: "Article 2: \"Our Father Who Art in Heaven\""},
-	{Part: "Part Four · Christian Prayer", SectionName: "Section Two · The Lord's Prayer: \"Our Father!\"", ChapterName: "", Title: "Article 3: The Seven Petitions"},
-	{Part: "Part Four · Christian Prayer", SectionName: "Section Two · The Lord's Prayer: \"Our Father!\"", ChapterName: "", Title: "Article 4: The Final Doxology"},
+	{Part: "Part Four · Christian Prayer", SectionName: "Section Two · The Lord's Prayer: \"Our Father!\"", ChapterName: "", ArticleName: "Article 1 · The Summary of the Whole Gospel", Title: "Article 1: The Summary of the Whole Gospel", StartSecID: "s-422"},
+	{Part: "Part Four · Christian Prayer", SectionName: "Section Two · The Lord's Prayer: \"Our Father!\"", ChapterName: "", ArticleName: "Article 2 · \"Our Father Who Art in Heaven\"", Title: "Article 2: \"Our Father Who Art in Heaven\"", StartSecID: "s-428"},
+	{Part: "Part Four · Christian Prayer", SectionName: "Section Two · The Lord's Prayer: \"Our Father!\"", ChapterName: "", ArticleName: "Article 3 · The Seven Petitions", Title: "Article 3: The Seven Petitions", StartSecID: "s-433"},
+	{Part: "Part Four · Christian Prayer", SectionName: "Section Two · The Lord's Prayer: \"Our Father!\"", ChapterName: "", ArticleName: "Article 4 · The Final Doxology", Title: "Article 4: The Final Doxology", StartSecID: "s-440"},
 }
 
 func main() {
@@ -207,6 +205,8 @@ func main() {
 	pRegex := regexp.MustCompile(`id="p-(\d+)"`)
 
 	var sections []*Section
+	secIndexByID := make(map[string]int)
+
 	for i := 1; i < len(parts); i++ {
 		part := parts[i]
 		quoteIdx := strings.Index(part, `">`)
@@ -249,123 +249,20 @@ func main() {
 			MinP:     minP,
 			MaxP:     maxP,
 		}
+		secIndexByID[id] = len(sections)
 		sections = append(sections, sec)
 	}
 
-	// 3. Parse TOC
-	tocStart := strings.Index(content, `<nav aria-label="Table of contents">`)
-	tocEnd := strings.Index(content, `</details><section class="chapter"`)
-	tocHTML := content[tocStart:tocEnd]
-	doc, err := nethtml.Parse(strings.NewReader(tocHTML))
-	if err != nil {
-		log.Fatalf("Failed to parse TOC HTML: %v", err)
-	}
-	tocRoots := parseTOC(doc)
-
-	// Collect page definitions using inherited ancestor start sections for logical page boundaries
-	type RawPage struct {
-		Title       string
-		Range       string
-		StartID     string
-		StartSecNum int
-		Breadcrumbs []string
-	}
-
-	var rawPages []*RawPage
-	lastAssignedSec := -1
-
-	var walkTOC func(n *TOCNode, trail []string, inheritedStartSec int)
-	walkTOC = func(n *TOCNode, trail []string, inheritedStartSec int) {
-		currentTrail := trail
-		if n.Title != "" {
-			currentTrail = append(currentTrail, n.Title)
-		}
-
-		startSec := inheritedStartSec
-		if n.SecNum != -1 && (startSec == -1 || n.SecNum < startSec) && n.SecNum > lastAssignedSec {
-			startSec = n.SecNum
-		}
-
-		hasChildBranch := false
-		for _, ch := range n.Children {
-			if ch.IsBranch {
-				hasChildBranch = true
-				break
-			}
-		}
-
-		if n.IsBranch && !hasChildBranch {
-			actualStart := startSec
-			if actualStart == -1 || actualStart <= lastAssignedSec {
-				actualStart = n.SecNum
-			}
-			if actualStart > lastAssignedSec {
-				lastAssignedSec = actualStart
-			}
-
-			rawPages = append(rawPages, &RawPage{
-				Title:       n.Title,
-				Range:       n.Range,
-				StartID:     n.ID,
-				StartSecNum: actualStart,
-				Breadcrumbs: currentTrail,
-			})
-			return
-		}
-
-		first := true
-		for _, ch := range n.Children {
-			if ch.IsBranch {
-				if first {
-					walkTOC(ch, currentTrail, startSec)
-					first = false
-				} else {
-					walkTOC(ch, currentTrail, -1)
-				}
-			}
-		}
-	}
-
-	for _, root := range tocRoots {
-		walkTOC(root, nil, -1)
-	}
-
-	if len(rawPages) > 0 {
-		rawPages[0].StartSecNum = 0
-		rawPages[0].StartID = "s-0"
-	}
-
-	// Slicing sections into contiguous pages
-	// Slicing sections into contiguous pages using actual slice indices
-	secIndexByID := make(map[string]int)
-	for idx, s := range sections {
-		secIndexByID[s.ID] = idx
-	}
-
-	getSecIndex := func(secNum int, secID string) int {
-		if idx, ok := secIndexByID[secID]; ok {
-			return idx
-		}
-		formattedID := fmt.Sprintf("s-%d", secNum)
-		if idx, ok := secIndexByID[formattedID]; ok {
-			return idx
-		}
-		for i, s := range sections {
-			num, _ := strconv.Atoi(strings.TrimPrefix(s.ID, "s-"))
-			if num >= secNum {
-				return i
-			}
-		}
-		return len(sections)
-	}
-
+	// 3. Map canonical pages to sections
 	var pages []*PageDef
-	for i := 0; i < len(rawPages); i++ {
-		startSec := getSecIndex(rawPages[i].StartSecNum, rawPages[i].StartID)
+	for i := 0; i < len(canonicalPages); i++ {
+		startSec, ok := secIndexByID[canonicalPages[i].StartSecID]
+		if !ok {
+			log.Fatalf("StartSecID %s not found for page %d (%s)", canonicalPages[i].StartSecID, i+1, canonicalPages[i].Title)
+		}
 		endSec := len(sections)
-		if i+1 < len(rawPages) {
-			nextStart := getSecIndex(rawPages[i+1].StartSecNum, rawPages[i+1].StartID)
-			if nextStart > startSec {
+		if i+1 < len(canonicalPages) {
+			if nextStart, ok := secIndexByID[canonicalPages[i+1].StartSecID]; ok {
 				endSec = nextStart
 			}
 		}
@@ -386,26 +283,15 @@ func main() {
 		}
 
 		filename := fmt.Sprintf("%03d.html", i+1)
-		part := ""
-		secName := ""
-		chapName := ""
-		title := rawPages[i].Title
-		if i < len(canonicalPages) {
-			part = canonicalPages[i].Part
-			secName = canonicalPages[i].SectionName
-			chapName = canonicalPages[i].ChapterName
-			title = canonicalPages[i].Title
-		}
-
 		page := &PageDef{
 			Index:       i + 1,
 			Filename:    filename,
-			Title:       title,
-			Part:        part,
-			SectionName: secName,
-			ChapterName: chapName,
-			StartID:     rawPages[i].StartID,
-			Breadcrumbs: rawPages[i].Breadcrumbs,
+			Title:       canonicalPages[i].Title,
+			Part:        canonicalPages[i].Part,
+			SectionName: canonicalPages[i].SectionName,
+			ChapterName: canonicalPages[i].ChapterName,
+			ArticleName: canonicalPages[i].ArticleName,
+			StartID:     canonicalPages[i].StartSecID,
 			Sections:    pageSecs,
 			ParaNums:    pageParas,
 			MinP:        minP,
@@ -442,7 +328,7 @@ func main() {
 		fmt.Printf("WARNING: %d duplicate paragraphs detected!\n", len(duplicateParas))
 	}
 
-	// 5. Build search index & para-map
+	// 4. Build search index & para-map
 	paraMap := make(map[string]string)
 	var searchIndex []SearchItem
 	plainParaRegex := regexp.MustCompile(`(?s)<p id="p-(\d+)"[^>]*>(.*?)</p>`)
@@ -477,7 +363,7 @@ func main() {
 	os.WriteFile("assets/search-index.json", searchIndexJSON, 0644)
 	fmt.Printf("Wrote assets/search-index.json with %d indexed paragraphs.\n", len(searchIndex))
 
-	// 6. Generate HTML files in pages/
+	// 5. Generate HTML files in pages/
 	os.RemoveAll("pages")
 	os.MkdirAll("pages", 0755)
 
@@ -492,7 +378,7 @@ func main() {
 	}
 	fmt.Printf("Successfully generated %d chapter pages in pages/\n", len(pages))
 
-	// 7. Generate Landing Page index.html
+	// 6. Generate Landing Page index.html
 	landingHTML := renderLandingPage(pages)
 	if err := os.WriteFile("index.html", []byte(landingHTML), 0644); err != nil {
 		log.Fatalf("Failed to write landing index.html: %v", err)
@@ -505,22 +391,34 @@ func renderTOCDrawer(pages []*PageDef) string {
 	currentPart := ""
 	currentSection := ""
 	currentChapter := ""
+	currentArticle := ""
 
 	for _, p := range pages {
 		if p.Part != currentPart && p.Part != "" {
 			currentPart = p.Part
 			currentSection = ""
 			currentChapter = ""
+			currentArticle = ""
 			sb.WriteString(fmt.Sprintf(`<div class="toc-part-header">%s</div>`, html.EscapeString(currentPart)))
 		}
 		if p.SectionName != currentSection && p.SectionName != "" {
 			currentSection = p.SectionName
 			currentChapter = ""
+			currentArticle = ""
 			sb.WriteString(fmt.Sprintf(`<div class="toc-section-header">%s</div>`, html.EscapeString(currentSection)))
 		}
 		if p.ChapterName != currentChapter && p.ChapterName != "" {
 			currentChapter = p.ChapterName
+			currentArticle = ""
 			sb.WriteString(fmt.Sprintf(`<div class="toc-chapter-header">%s</div>`, html.EscapeString(currentChapter)))
+		}
+		if p.ArticleName != currentArticle && p.ArticleName != "" {
+			currentArticle = p.ArticleName
+			// Display an Article banner if this page is a sub-paragraph of the article
+			if !strings.EqualFold(strings.TrimSpace(p.Title), strings.TrimSpace(p.ArticleName)) &&
+				!strings.HasPrefix(p.Title, "Article ") {
+				sb.WriteString(fmt.Sprintf(`<div class="toc-article-header">%s</div>`, html.EscapeString(currentArticle)))
+			}
 		}
 
 		rangeStr := ""
@@ -528,11 +426,16 @@ func renderTOCDrawer(pages []*PageDef) string {
 			rangeStr = fmt.Sprintf("¶ %d–%d", p.MinP, p.MaxP)
 		}
 
+		indentClass := ""
+		if strings.HasPrefix(p.Title, "Paragraph ") {
+			indentClass = " toc-indent-sub"
+		}
+
 		sb.WriteString(fmt.Sprintf(`
-<a href="%s" class="toc-page-link" data-page="%s">
+<a href="%s" class="toc-page-link%s" data-page="%s">
   <span class="toc-link-title">%s</span>
   <span class="toc-link-range">%s</span>
-</a>`, p.Filename, p.Filename, html.EscapeString(p.Title), rangeStr))
+</a>`, p.Filename, indentClass, p.Filename, html.EscapeString(p.Title), rangeStr))
 	}
 	return sb.String()
 }
@@ -545,31 +448,62 @@ func renderPageHTML(page *PageDef, drawerHTML string) string {
 	var bcHTML strings.Builder
 	bcHTML.WriteString(`<a href="../index.html">Catechism</a>`)
 	if page.Part != "" && page.Part != "Prologue" {
-		bcHTML.WriteString(` <span style="opacity:0.5">›</span> `)
-		bcHTML.WriteString(fmt.Sprintf(`<span>%s</span>`, html.EscapeString(page.Part)))
+		bcHTML.WriteString(` <span class="bc-sep">›</span> `)
+		bcHTML.WriteString(fmt.Sprintf(`<span class="bc-part">%s</span>`, html.EscapeString(page.Part)))
 	}
 	if page.SectionName != "" {
-		bcHTML.WriteString(` <span style="opacity:0.5">›</span> `)
-		bcHTML.WriteString(fmt.Sprintf(`<span>%s</span>`, html.EscapeString(page.SectionName)))
+		bcHTML.WriteString(` <span class="bc-sep">›</span> `)
+		bcHTML.WriteString(fmt.Sprintf(`<span class="bc-section">%s</span>`, html.EscapeString(page.SectionName)))
 	}
 	if page.ChapterName != "" {
-		bcHTML.WriteString(` <span style="opacity:0.5">›</span> `)
-		bcHTML.WriteString(fmt.Sprintf(`<span>%s</span>`, html.EscapeString(page.ChapterName)))
+		bcHTML.WriteString(` <span class="bc-sep">›</span> `)
+		bcHTML.WriteString(fmt.Sprintf(`<span class="bc-chapter">%s</span>`, html.EscapeString(page.ChapterName)))
+	}
+	if page.ArticleName != "" && !strings.EqualFold(page.ArticleName, page.Title) && !strings.HasPrefix(page.Title, "Article ") {
+		bcHTML.WriteString(` <span class="bc-sep">›</span> `)
+		bcHTML.WriteString(fmt.Sprintf(`<span class="bc-article">%s</span>`, html.EscapeString(page.ArticleName)))
+	}
+
+	rangeStr := ""
+	if page.MinP > 0 && page.MaxP > 0 {
+		rangeStr = fmt.Sprintf("¶ %d–%d", page.MinP, page.MaxP)
 	}
 
 	var navHTML strings.Builder
+	navHTML.WriteString(`<div class="navigation-footer">`)
+
+	// Current Location Card Centerpiece
+	navHTML.WriteString(`<div class="nav-location-card">`)
+	navHTML.WriteString(`<div class="nav-location-tag">Current Reading Location</div>`)
+	navHTML.WriteString(fmt.Sprintf(`<div class="nav-location-breadcrumbs">%s</div>`, bcHTML.String()))
+	navHTML.WriteString(fmt.Sprintf(`<div class="nav-location-title">%s</div>`, html.EscapeString(page.Title)))
+	if rangeStr != "" {
+		navHTML.WriteString(fmt.Sprintf(`<div class="nav-location-range">%s</div>`, rangeStr))
+	}
+	navHTML.WriteString(`<button type="button" class="btn-location-toc" id="btn-bottom-toc">📖 Table of Contents</button>`)
+	navHTML.WriteString(`</div>`)
+
+	// Prev / Next Navigation Cards
 	navHTML.WriteString(`<nav class="page-navigation" aria-label="Chapter Navigation">`)
 	if page.Prev != nil {
 		prevRange := ""
 		if page.Prev.MinP > 0 {
 			prevRange = fmt.Sprintf("¶ %d–%d", page.Prev.MinP, page.Prev.MaxP)
 		}
+		prevContext := page.Prev.ChapterName
+		if prevContext == "" {
+			prevContext = page.Prev.SectionName
+		}
+		if page.Prev.ArticleName != "" && prevContext != "" {
+			prevContext = page.Prev.ArticleName
+		}
 		navHTML.WriteString(fmt.Sprintf(`
   <a href="%s" class="nav-card prev" rel="prev">
     <span class="nav-label">← Previous</span>
+    <span class="nav-context">%s</span>
     <span class="nav-title">%s</span>
     <span class="nav-range">%s</span>
-  </a>`, page.Prev.Filename, html.EscapeString(page.Prev.Title), prevRange))
+  </a>`, page.Prev.Filename, html.EscapeString(prevContext), html.EscapeString(page.Prev.Title), prevRange))
 	} else {
 		navHTML.WriteString(`<div></div>`)
 	}
@@ -579,16 +513,24 @@ func renderPageHTML(page *PageDef, drawerHTML string) string {
 		if page.Next.MinP > 0 {
 			nextRange = fmt.Sprintf("¶ %d–%d", page.Next.MinP, page.Next.MaxP)
 		}
+		nextContext := page.Next.ChapterName
+		if nextContext == "" {
+			nextContext = page.Next.SectionName
+		}
+		if page.Next.ArticleName != "" && nextContext != "" {
+			nextContext = page.Next.ArticleName
+		}
 		navHTML.WriteString(fmt.Sprintf(`
   <a href="%s" class="nav-card next" rel="next">
     <span class="nav-label">Next →</span>
+    <span class="nav-context">%s</span>
     <span class="nav-title">%s</span>
     <span class="nav-range">%s</span>
-  </a>`, page.Next.Filename, html.EscapeString(page.Next.Title), nextRange))
+  </a>`, page.Next.Filename, html.EscapeString(nextContext), html.EscapeString(page.Next.Title), nextRange))
 	} else {
 		navHTML.WriteString(`<div></div>`)
 	}
-	navHTML.WriteString(`</nav>`)
+	navHTML.WriteString(`</nav></div>`)
 
 	var bodyContent strings.Builder
 	leadingH2Regex := regexp.MustCompile(`(?s)^\s*<h2[^>]*>.*?</h2>\s*`)
@@ -655,13 +597,10 @@ func renderPageHTML(page *PageDef, drawerHTML string) string {
 		bodyContent.WriteString(`</section>`)
 	}
 
-	rangeStr := ""
-	if page.MinP > 0 && page.MaxP > 0 {
-		rangeStr = fmt.Sprintf("¶ %d–%d", page.MinP, page.MaxP)
-	}
-
 	badge := page.Part
-	if page.ChapterName != "" {
+	if page.ArticleName != "" && !strings.EqualFold(page.ArticleName, page.Title) && !strings.HasPrefix(page.Title, "Article ") {
+		badge = page.ArticleName
+	} else if page.ChapterName != "" {
 		badge = page.ChapterName
 	} else if page.SectionName != "" {
 		badge = page.SectionName
@@ -703,6 +642,7 @@ func renderPageHTML(page *PageDef, drawerHTML string) string {
   <div class="breadcrumbs-bar">
     <div class="breadcrumbs-container">
       %s
+      <span id="active-reading-para" class="active-para-tag" style="display:none;" aria-live="polite"></span>
     </div>
   </div>
 
@@ -768,30 +708,45 @@ func renderLandingPage(pages []*PageDef) string {
 	currentPart := ""
 	currentSection := ""
 	currentChapter := ""
+	currentArticle := ""
+
 	for _, p := range pages {
 		if p.Part != currentPart && p.Part != "" {
 			currentPart = p.Part
 			currentSection = ""
 			currentChapter = ""
+			currentArticle = ""
 			tocListHTML.WriteString(fmt.Sprintf(`
-<div class="landing-part-header" style="margin: 2.2rem 0 0.6rem; padding-bottom: 0.4rem; border-bottom: 2px solid var(--accent); font-family: var(--font-sans); font-size: 1.25rem; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.03em;">
+<div class="landing-part-header">
   %s
 </div>`, html.EscapeString(currentPart)))
 		}
 		if p.SectionName != currentSection && p.SectionName != "" {
 			currentSection = p.SectionName
 			currentChapter = ""
+			currentArticle = ""
 			tocListHTML.WriteString(fmt.Sprintf(`
-<div class="landing-section-header" style="margin: 1.3rem 0 0.45rem 0.25rem; font-family: var(--font-sans); font-size: 1.05rem; font-weight: 700; color: var(--text); border-bottom: 1px dashed var(--border); padding-bottom: 0.25rem;">
+<div class="landing-section-header">
   %s
 </div>`, html.EscapeString(currentSection)))
 		}
 		if p.ChapterName != currentChapter && p.ChapterName != "" {
 			currentChapter = p.ChapterName
+			currentArticle = ""
 			tocListHTML.WriteString(fmt.Sprintf(`
-<div class="landing-chapter-header" style="margin: 0.85rem 0 0.35rem 0.5rem; font-family: var(--font-sans); font-size: 0.9rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;">
+<div class="landing-chapter-header">
   %s
 </div>`, html.EscapeString(currentChapter)))
+		}
+		if p.ArticleName != currentArticle && p.ArticleName != "" {
+			currentArticle = p.ArticleName
+			if !strings.EqualFold(strings.TrimSpace(p.Title), strings.TrimSpace(p.ArticleName)) &&
+				!strings.HasPrefix(p.Title, "Article ") {
+				tocListHTML.WriteString(fmt.Sprintf(`
+<div class="landing-article-header">
+  %s
+</div>`, html.EscapeString(currentArticle)))
+			}
 		}
 
 		rangeStr := ""
@@ -799,11 +754,16 @@ func renderLandingPage(pages []*PageDef) string {
 			rangeStr = fmt.Sprintf("¶ %d–%d", p.MinP, p.MaxP)
 		}
 
+		indentClass := ""
+		if strings.HasPrefix(p.Title, "Paragraph ") {
+			indentClass = " toc-indent-sub"
+		}
+
 		tocListHTML.WriteString(fmt.Sprintf(`
-<a href="pages/%s" class="toc-page-link" style="background: var(--bg-card); border: 1px solid var(--border); padding: 0.75rem 1rem; margin-bottom: 0.35rem; margin-left: 0.5rem; border-radius: 8px;">
-  <span class="toc-link-title" style="font-size: 0.95rem; font-weight: 500;">%s</span>
-  <span class="toc-link-range" style="font-size: 0.82rem; background: var(--accent-light); color: var(--accent); padding: 0.15rem 0.45rem; border-radius: 4px;">%s</span>
-</a>`, p.Filename, html.EscapeString(p.Title), rangeStr))
+<a href="pages/%s" class="toc-page-link%s">
+  <span class="toc-link-title">%s</span>
+  <span class="toc-link-range">%s</span>
+</a>`, p.Filename, indentClass, html.EscapeString(p.Title), rangeStr))
 	}
 
 	return fmt.Sprintf(`<!doctype html>
@@ -850,7 +810,7 @@ func renderLandingPage(pages []*PageDef) string {
 
     <section>
       <h2 style="font-family: var(--font-sans); font-size: 1.5rem; margin-bottom: 1rem; border: none; padding: 0;">Table of Contents</h2>
-      <div style="display: flex; flex-direction: column;">
+      <div class="landing-toc-container">
         %s
       </div>
     </section>
@@ -876,135 +836,6 @@ func renderLandingPage(pages []*PageDef) string {
   <script src="assets/search.js"></script>
 </body>
 </html>`, tocListHTML.String())
-}
-
-func parseTOC(doc *nethtml.Node) []*TOCNode {
-	var roots []*TOCNode
-	var walk func(n *nethtml.Node)
-	walk = func(n *nethtml.Node) {
-		if n.Type == nethtml.ElementNode && n.Data == "div" {
-			for _, attr := range n.Attr {
-				if attr.Key == "class" && strings.Contains(attr.Val, "toc-branch") {
-					isPart := false
-					for _, a := range n.Attr {
-						if a.Key == "data-part" {
-							isPart = true
-						}
-					}
-					if isPart {
-						roots = append(roots, parseBranchNode(n))
-						return
-					}
-				}
-			}
-		}
-		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			walk(c)
-		}
-	}
-	walk(doc)
-	return roots
-}
-
-func parseBranchNode(n *nethtml.Node) *TOCNode {
-	node := &TOCNode{IsBranch: true, SecNum: -1}
-	for _, a := range n.Attr {
-		if a.Key == "data-part" {
-			node.IsPart = true
-		}
-	}
-
-	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		if c.Type == nethtml.ElementNode && c.Data == "div" && hasClass(c, "toc-row") {
-			extractRowData(c, node)
-		}
-		if c.Type == nethtml.ElementNode && c.Data == "div" && hasClass(c, "toc-children") {
-			for sub := c.FirstChild; sub != nil; sub = sub.NextSibling {
-				if sub.Type == nethtml.ElementNode && sub.Data == "div" {
-					if hasClass(sub, "toc-branch") {
-						node.Children = append(node.Children, parseBranchNode(sub))
-					} else if hasClass(sub, "toc-item") {
-						node.Children = append(node.Children, parseItemNode(sub))
-					}
-				}
-			}
-		}
-	}
-	return node
-}
-
-func parseItemNode(n *nethtml.Node) *TOCNode {
-	node := &TOCNode{IsBranch: false, SecNum: -1}
-	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		if c.Type == nethtml.ElementNode && c.Data == "div" && hasClass(c, "toc-row") {
-			extractRowData(c, node)
-		}
-	}
-	return node
-}
-
-func extractRowData(row *nethtml.Node, node *TOCNode) {
-	var findA func(n *nethtml.Node)
-	findA = func(n *nethtml.Node) {
-		if n.Type == nethtml.ElementNode && n.Data == "a" {
-			for _, a := range n.Attr {
-				if a.Key == "href" {
-					node.ID = strings.TrimPrefix(a.Val, "#")
-					base := node.ID
-					if idx := strings.Index(base, "-heading-"); idx != -1 {
-						base = base[:idx]
-					}
-					if strings.HasPrefix(base, "s-") {
-						node.SecNum, _ = strconv.Atoi(strings.TrimPrefix(base, "s-"))
-					}
-				}
-			}
-			for sub := n.FirstChild; sub != nil; sub = sub.NextSibling {
-				if sub.Type == nethtml.ElementNode && sub.Data == "span" {
-					for _, attr := range sub.Attr {
-						if attr.Key == "data-toc-title" {
-							node.Title = getTextContent(sub)
-						}
-						if attr.Key == "class" && attr.Val == "toc-range" {
-							node.Range = getTextContent(sub)
-						}
-					}
-				}
-			}
-		}
-		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			findA(c)
-		}
-	}
-	findA(row)
-}
-
-func hasClass(n *nethtml.Node, cls string) bool {
-	for _, a := range n.Attr {
-		if a.Key == "class" {
-			for _, f := range strings.Fields(a.Val) {
-				if f == cls {
-					return true
-				}
-			}
-		}
-	}
-	return false
-}
-
-func getTextContent(n *nethtml.Node) string {
-	var sb strings.Builder
-	var walk func(*nethtml.Node)
-	walk = func(curr *nethtml.Node) {
-		if curr.Type == nethtml.TextNode {
-			sb.WriteString(curr.Data)
-		}
-		for c := curr.FirstChild; c != nil; c = c.NextSibling {
-			walk(c)
-		}
-	}
-	walk(n)
-	return strings.TrimSpace(html.UnescapeString(sb.String()))
 }
 
 func cleanHTMLText(s string) string {
